@@ -10,6 +10,8 @@
   <packaging>pom</packaging>
 
   <modules>
+    <module>SPARK</module>
+    <module>ACCUMULO</module>
   </modules>
 
   <build>
