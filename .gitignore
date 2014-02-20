@@ -1,0 +1,32 @@
+target
+eclipse-classes
+.classpath
+.settings
+.project
+
+# Gradle
+build
+
+# Python compiled files
+*.pyc
+*.pyo
+
+# vim artifacts
+.*.swp
+.*.swo
+
+# OS X Artifacts
+.DS_Store
+
+# IntelliJ artifacts
+*.iml
+*.ipr
+*.iws
+.idea
+
+# emacs backup files
+*~
+
+# NetBeans artifacts
+nb-configuration.xml
+nbactions.xml
