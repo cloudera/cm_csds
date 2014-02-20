@@ -1,0 +1,208 @@
+/**
+ * Copyright (c) 2014 Cloudera, Inc. All rights reserved.
+ */
+{
+  "name" : "SPARK",
+  "label" : "Spark",
+  "description" : "Apache Spark is an open source cluster computing system",
+  "version" : "1.0", 
+  "runAs" : {
+    "user" : "spark",
+    "group" : "spark"
+   },
+  "inExpressWizard" : true,
+  "icon" : "images/icon.png",
+  "parcel" : {
+    /* Automatically add the spark parcel repository */
+    "repoUrl" : "http://archive.cloudera.com/spark/parcels/latest/",
+    "requiredTags" : ["spark", "cdh"],
+    "optionalTags" : ["spark-plugin"]
+   },
+   "serviceDependencies" : [
+    {
+     "name" : "HDFS",
+     "required" : "false"
+    }
+   ],
+   "hdfsDirs" : [
+    {
+      "name" : "CreateSparkUserDirCommand",
+      "label" : "Create Spark User Dir",
+      "description" : "Creates the Spark user directory in HDFS.",
+      "directoryDescription" : "Spark HDFS user directory",
+      "path" : "/user/${user}",
+      "permissions" : "0750"
+    }
+   ],
+   "serviceInit" : {
+     "preStartSteps" : [
+      { "commandName" : "CreateSparkUserDirCommand" }
+     ]
+   },
+   "parameters" : [
+     {
+       "name" : "identity_string",
+       "label" : "Identity String",
+       "description" : "The identity string of the Spark instance",
+       "configName" : "identity.string",
+       "required" : "false",
+       "type" : "string"
+     }
+   ],
+   "rolesWithExternalLinks" : ["SPARK_MASTER"],
+   "roles" : [
+    {
+       "name" : "SPARK_MASTER",
+       "label" : "Master",
+       "pluralLabel" : "Masters",
+       "startRunner" : {
+         "program" : "scripts/control.sh",
+         "args" : [
+            "start_master",
+            "./master.properties"
+         ],
+         "environmentVariables" : {
+            "SPARK_IDENT_STRING" : "${user}",
+            "SPARK_MASTER_PORT" : "${master_port}",
+            "SPARK_MASTER_WEBUI_PORT" : "${master_webui_port}",
+            "ADDITIONAL_ARGS" : "${master_additional_args}"
+         }
+       },
+      "externalLink" : {
+        "name" : "master_web_ui",
+        "label" : "Master Web UI",
+        "url" : "http://${host}:${master_webui_port}"
+      },
+      "topology" : { "minInstances" : 1, "maxInstances" : 1 },
+      "logging" : {
+         "dir" : "/var/log/spark",
+         "filename" : "spark-master-${host}.log",
+         "configName" : "log.dir",
+         "loggingType" : "log4j"
+       },
+       "parameters" : [
+        {
+          "name" : "master_port",
+          "label" : "Master Port",
+          "description" : "The port of the master",
+          "configName" : "server.port",
+          "required" : "true",
+          "type" : "port",
+          "default" : 7077,
+          "configurableInWizard" : true
+        },
+        {
+          "name" : "master_webui_port",
+          "label" : "Master WebUI Port",
+          "description" : "The port of the master WebUI",
+          "configName" : "webui.port",
+          "required" : "true",
+          "type" : "port",
+          "default" : 18080,
+          "configurableInWizard" : true
+        },
+        {
+          "name" : "master_additional_args",
+          "label" : "Additional Master args",
+          "description" : "Additional arguments for the master",
+          "configName" : "additional.args",
+          "required" : "false",
+          "type" : "string",
+          "default" : ""
+        }
+      ],
+      "configWriter" : {
+        "peerConfigGenerators" : [
+          {
+            "filename" : "master.properties",
+            "params" : ["master_port"],
+            "roleName" : "SPARK_MASTER"
+          }
+         ]
+      }
+    },
+    {
+       "name" : "SPARK_WORKER",
+       "label" : "Worker",
+       "pluralLabel" : "Workers",
+       "startRunner" : {
+         "program" : "scripts/control.sh",
+         "args" : [
+            "start_worker",
+            "./master.properties"
+         ],
+         "environmentVariables" : {
+            "SPARK_IDENT_STRING" : "${user}",
+            "SPARK_WORKER_PORT" : "${worker_port}",
+            "SPARK_WORKER_WEBUI_PORT" : "${worker_webui_port}",
+            "SPARK_WORKER_DIR" : "${work_directory}",
+            "ADDITIONAL_ARGS" : "${worker_additional_args}"
+         }
+       },
+       "externalLink" : {
+        "name" : "worker_web_ui",
+        "label" : "Worker Web UI",
+        "url" : "http://${host}:${worker_webui_port}"
+       },
+       "topology" : { "minInstances" : 1 },
+       "logging" : {
+         "dir" : "/var/log/spark",
+         "filename" : "spark-worker-${host}.log",
+	       "configName" : "log.dir",
+         "loggingType" : "log4j"
+       },
+       "parameters" : [
+        {
+          "name" : "worker_port",
+          "label" : "Worker Port",
+          "description" : "The port of the worker",
+          "configName" : "server.port",
+          "required" : "true",
+          "type" : "port",
+          "default" : 7078,
+          "configurableInWizard" : true
+        },
+        {
+          "name" : "worker_webui_port",
+          "label" : "Worker WebUI Port",
+          "description" : "The port of the worker WebUI",
+          "configName" : "webui.port",
+          "required" : "true",
+          "type" : "port",
+          "default" : 18081,
+          "configurableInWizard" : true
+        },
+        {
+          "name" : "worker_additional_args",
+          "label" : "Additional Worker args",
+          "description" : "Additional arguments for the workers",
+          "configName" : "additional.args",
+          "required" : "false",
+          "type" : "string",
+          "default" : ""
+        },
+        {
+          "name" : "work_directory",
+          "label" : "Work directory",
+          "description" : "The work directory for temporary files",
+          "configName" : "work.dir",
+          "required" : "true",
+          "type" : "path",
+          "pathType" : "localDataDir",
+          "default" : "/var/run/spark/work"
+        }
+      ],
+      "configWriter" : {
+        "peerConfigGenerators" : [
+          {
+            "filename" : "master.properties",
+            "params" : ["master_port"],
+            "roleName" : "SPARK_MASTER"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+
