@@ -17,7 +17,7 @@
   "name" : "ACCUMULO",
   "label" : "Accumulo",
   "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system.",
-  "version" : "1.4",
+  "version" : "1.0",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "4" } },
   "runAs" : {
     "user" : "accumulo",
@@ -63,49 +63,61 @@
     "parameters" : [
       {
         "name" : "client_max_heapsize",
-        "label" : "Client Max Heapsize",
-        "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+        "label" : "Client Java Heap Size in Bytes",
+        "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
         "required" : "true",
-        "type" : "long",
+        "type" : "memory",
         "unit" : "bytes",
-        "default" : 1073741824
+        "min" : 67108864,
+        "default" : 1073741824,
+        "scaleFactor" : 1.3
       }
     ],
     "scriptRunner" : {
       "program" : "scripts/accumulo.sh",
       "args" : [ "client" ],
-      "environmentVariables" : { 
+      "environmentVariables" : {
         "ACCUMULO_OTHER_OPTS" : " -Xmx${client_max_heapsize} ",
         "ACCUMULO_GENERAL_OPTS" : " ${accumulo_java_opts} ",
         "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
       }
     },
     "configWriter" : {
+      "auxConfigGenerators" : [
+        {
+          "filename" : "accumulo-conf/accumulo-env.sh",
+          "sourceFilename" : "aux/client/accumulo-env.sh"
+        },
+        {
+          "filename" : "accumulo-conf/log4j.properties",
+          "sourceFilename" : "aux/client/log4j.properties"
+        }
+      ],
       "generators" : [
-        { 
-          "filename" : "accumulo-site.xml", 
-          "configFormat" : "hadoop_xml", 
-          "includedParams" : ["master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"] 
+        {
+          "filename" : "accumulo-conf/accumulo-site.xml",
+          "configFormat" : "hadoop_xml",
+          "includedParams" : ["master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"]
         }
       ]
     }
   },
   "serviceDependencies" : [
-    {"name" : "ZOOKEEPER", "required" : "true" }, 
+    {"name" : "ZOOKEEPER", "required" : "true" },
     {"name" : "MAPREDUCE", "required" : "true"}
   ],
   "hdfsDirs" : [
-    { 
-      "name" : "CreateHdfsDirCommand", 
-      "label" : "Create Accumulo Home Dir", 
+    {
+      "name" : "CreateHdfsDirCommand",
+      "label" : "Create Accumulo Home Dir",
       "description" : "Creates the Accumulo home directory in HDFS.",
       "directoryDescription" : "Accumulo HDFS home directory",
       "path" : "${accumulo_hdfs_dir}",
       "permissions" : "0751"
     },
-    { 
-      "name" : "CreateAccumuloUserDirCommand", 
-      "label" : "Create Accumulo User Dir", 
+    {
+      "name" : "CreateAccumuloUserDirCommand",
+      "label" : "Create Accumulo User Dir",
       "description" : "Creates the Accumulo user directory in HDFS.",
       "directoryDescription" : "Accumulo HDFS user directory",
       "path" : "/user/${user}",
@@ -127,7 +139,7 @@
       "description" : "A secret unique to a given instance that all servers must know in order to communicate with one another.",
       "configName" : "instance.secret",
       "required" : "true",
-      "type" : "string", 
+      "type" : "string",
       "default" : "DEFAULT",
       "configurableInWizard" : true
     },
@@ -177,8 +189,8 @@
       "required" : "true",
       "type" : "long",
       "default" : 3,
-      "minValue" : 1,
-      "maxValue" : 100
+      "min" : 1,
+      "max" : 100
     },
     {
       "name" : "accumulo_instance_name",
@@ -186,7 +198,7 @@
       "configName" : "accumulo_instance_name",
       "description" : "Name of the Accumulo instance. Used while initializing Accumulo.",
       "required" : "true",
-      "type" : "string", 
+      "type" : "string",
       "default" : "accumulo",
       "configurableInWizard" : true
     },
@@ -196,7 +208,7 @@
       "configName" : "accumulo_root_password",
       "description" : "Password for root Accumulo user. Used while initializing Accumulo. If you are chaging this and are using root user for tracing, make sure to set Trace Password to same value.",
       "required" : "true",
-      "type" : "string", 
+      "type" : "string",
       "default" : "secret",
       "configurableInWizard" : true
     },
@@ -206,7 +218,7 @@
       "description" : "Trace Password. If you are using root user for tracing, then make sure it is set to same value as Root Password.",
       "configName" : "trace.password",
       "required" : "true",
-      "type" : "string", 
+      "type" : "string",
       "default" : "secret",
       "configurableInWizard" : true
     },
@@ -216,7 +228,7 @@
       "description" : "Trace User",
       "configName" : "trace.user",
       "required" : "true",
-      "type" : "string", 
+      "type" : "string",
       "default" : "root",
       "configurableInWizard" : true
     },
@@ -234,8 +246,8 @@
       "name" : "accumulo_java_opts",
       "label" : "Additional Java Options",
       "description" : "These arguments will be passed as part of the Java command line. Commonly, garbage collection flags or extra debugging flags would be passed here.",
-      "type" : "string", 
-      "default" : "-XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:-CMSConcurrentMTEnabled -XX:CMSInitiatingOccupancyFraction=70 -XX:+CMSParallelRemarkEnabled"
+      "type" : "string",
+      "default" : "-XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:-CMSConcurrentMTEnabled -XX:CMSInitiatingOccupancyFraction=70 -XX:+CMSParallelRemarkEnabled -Djava.net.preferIPv4Stack=true"
     }
   ],
   "roles" : [
@@ -263,7 +275,7 @@
           "commandRunner" : {
             "program" : "scripts/accumulo.sh",
             "args" : ["init"],
-            "environmentVariables" : { 
+            "environmentVariables" : {
               "ACCUMULO_LOG_DIR" : "${log_dir}",
               "ACCUMULO_MASTER_OPTS" : " -Xmx${master_max_heapsize} ",
               "ACCUMULO_GENERAL_OPTS" : " ${accumulo_java_opts} ",
@@ -277,10 +289,10 @@
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "master-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
-          { 
-            "filename" : "accumulo-site.xml", 
-            "configFormat" : "hadoop_xml", 
-            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"] 
+          {
+            "filename" : "accumulo-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"]
           }
         ]
       },
@@ -288,12 +300,14 @@
       "parameters" : [
         {
           "name" : "master_max_heapsize",
-          "label" : "Master Max Heapsize",
-          "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+          "label" : "Java Heap Size of Master in Bytes",
+          "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
           "required" : "true",
-          "type" : "long",
+          "type" : "memory",
           "unit" : "bytes",
-          "default" : 1073741824
+          "min" : 67108864,
+          "default" : 1073741824,
+          "scaleFactor" : 1.3
         }
       ]
     },
@@ -314,10 +328,10 @@
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "logger-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
-          { 
-            "filename" : "accumulo-site.xml", 
-            "configFormat" : "hadoop_xml", 
-            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "logger_dir_walog"] 
+          {
+            "filename" : "accumulo-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "logger_dir_walog"]
           }
         ]
       },
@@ -338,12 +352,14 @@
         },
         {
           "name" : "logger_max_heapsize",
-          "label" : "Logger Max Heapsize",
-          "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+          "label" : "Java Heap Size of Logger in Bytes",
+          "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
           "required" : "true",
-          "type" : "long",
+          "type" : "memory",
           "unit" : "bytes",
-          "default" : 1073741824
+          "min" : 67108864,
+          "default" : 1073741824,
+          "scaleFactor" : 1.3
         }
       ]
     },
@@ -364,10 +380,10 @@
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "tserver-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
-          { 
-            "filename" : "accumulo-site.xml", 
-            "configFormat" : "hadoop_xml", 
-            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "tserver_memory_maps_max", "tserver_cache_data_size", "tserver_cache_index_size"] 
+          {
+            "filename" : "accumulo-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "tserver_memory_maps_max", "tserver_cache_data_size", "tserver_cache_index_size"]
           }
         ]
       },
@@ -405,14 +421,26 @@
         },
         {
           "name" : "tserver_max_heapsize",
-          "label" : "Tablet Server Max Heapsize",
-          "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+          "label" : "Java Heap Size of Tablet Server in Bytes",
+          "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
           "required" : "true",
-          "type" : "long",
+          "type" : "memory",
           "unit" : "bytes",
-          "default" : 2147483648
+          "min" : 67108864,
+          "default" : 2147483648,
+          "softMax" : 34359738368,
+          "scaleFactor" : 1.3,
+          "autoConfigShare" : 100
         }
-      ]
+      ],
+      "cgroup" : {
+        "cpu" : {
+          "autoConfigured" : true
+         },
+         "blkio" : {
+          "autoConfigured" : true
+         }
+      }
     },
     {
       "name" : "ACCUMULO_GC",
@@ -431,10 +459,10 @@
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "gc-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
-          { 
-            "filename" : "accumulo-site.xml", 
-            "configFormat" : "hadoop_xml", 
-            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"] 
+          {
+            "filename" : "accumulo-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"]
           }
         ]
       },
@@ -442,12 +470,14 @@
       "parameters" : [
         {
           "name" : "gc_max_heapsize",
-          "label" : "Garbage Collector Max Heapsize",
-          "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+          "label" : "Java Heap Size of Garbage Collector in Bytes",
+          "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
           "required" : "true",
-          "type" : "long",
+          "type" : "memory",
           "unit" : "bytes",
-          "default" : 1073741824
+          "min" : 67108864,
+          "default" : 1073741824,
+          "scaleFactor" : 1.3
         }
       ]
     },
@@ -473,10 +503,10 @@
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "monitor-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
-          { 
-            "filename" : "accumulo-site.xml", 
-            "configFormat" : "hadoop_xml", 
-            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "accumulo_trace_user", "accumulo_trace_password"] 
+          {
+            "filename" : "accumulo-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "accumulo_trace_user", "accumulo_trace_password"]
           }
         ]
       },
@@ -484,12 +514,14 @@
       "parameters" : [
         {
           "name" : "monitor_max_heapsize",
-          "label" : "Monitor Max Heapsize",
-          "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+          "label" : "Java Heap Size of Monitor in Bytes",
+          "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
           "required" : "true",
-          "type" : "long",
+          "type" : "memory",
           "unit" : "bytes",
-          "default" : 1073741824
+          "min" : 67108864,
+          "default" : 1073741824,
+          "scaleFactor" : 1.3
         }
       ]
     },
@@ -510,10 +542,10 @@
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "tracer-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
-          { 
-            "filename" : "accumulo-site.xml", 
-            "configFormat" : "hadoop_xml", 
-            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "accumulo_trace_user", "accumulo_trace_password"] 
+          {
+            "filename" : "accumulo-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "accumulo_trace_user", "accumulo_trace_password"]
           }
         ]
       },
@@ -521,12 +553,14 @@
       "parameters" : [
         {
           "name" : "tracer_max_heapsize",
-          "label" : "Tracer Max Heapsize",
-          "description" : "Maximum size for the Java Process heap.  Passed to Java -Xmx.  Measured in bytes.",
+          "label" : "Java Heap Size of Tracer in Bytes",
+          "description" : "Maximum size for the Java Process heap memory.  Passed to Java -Xmx.  Measured in bytes.",
           "required" : "true",
-          "type" : "long",
+          "type" : "memory",
           "unit" : "bytes",
-          "default" : 1073741824
+          "min" : 67108864,
+          "default" : 1073741824,
+          "scaleFactor" : 1.3
         }
       ]
     }

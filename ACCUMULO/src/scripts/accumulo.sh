@@ -54,7 +54,7 @@ export ACCUMULO_VERIFY_ONLY=true
 export GC=unused
 export MONITOR=unused
 
-cp $CONF_DIR/scripts/accumulo-metrics.xml $CONF_DIR/
+cp $CONF_DIR/aux/accumulo-metrics.xml $CONF_DIR/
 
 # Add zk quorum to accumulo-site.xml
 add_to_accumulo_site instance.zookeeper.host $ZK_QUORUM
@@ -76,8 +76,6 @@ if [ "$1" = "master" ]; then
   $ACCUMULO_HOME/bin/accumulo org.apache.accumulo.server.master.state.SetGoalState NORMAL
 elif [ "$1" = "client" ]; then
   CLIENT_CONF_DIR=$CONF_DIR/accumulo-conf
-  cp $CONF_DIR/scripts/log4j.properties $CLIENT_CONF_DIR/log4j.properties
-  cp $CONF_DIR/scripts/accumulo-env.sh $CLIENT_CONF_DIR/accumulo-env.sh
   perl -pi -e "s#{{accumulo_general_opts}}#$ACCUMULO_GENERAL_OPTS#g" $CLIENT_CONF_DIR/accumulo-env.sh
   perl -pi -e "s#{{accumulo_other_opts}}#$ACCUMULO_OTHER_OPTS#g" $CLIENT_CONF_DIR/accumulo-env.sh
   chmod 777 $CLIENT_CONF_DIR/*
