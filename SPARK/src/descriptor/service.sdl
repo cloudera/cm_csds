@@ -17,11 +17,11 @@
   "name" : "SPARK",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system",
-  "version" : "1.0", 
+  "version" : "1.0",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
-   },
+  },
   "inExpressWizard" : true,
   "icon" : "images/icon.png",
   "parcel" : {
@@ -29,57 +29,99 @@
     "repoUrl" : "http://archive.cloudera.com/spark/parcels/latest/",
     "requiredTags" : ["spark", "cdh"],
     "optionalTags" : ["spark-plugin"]
-   },
-   "serviceDependencies" : [
+  },
+  "serviceDependencies" : [
     {
-     "name" : "HDFS",
-     "required" : "false"
+      "name" : "HDFS",
+      "required" : "false"
     }
-   ],
-   "hdfsDirs" : [
+  ],
+  "commands" : [
+    {
+      "name" : "SparkUploadJarServiceCommand",
+      "label" : "Upload Spark Jar",
+      "description" : "Upload Spark assembly jar to HDFS.",
+      "roleName" : "SPARK_MASTER",
+      "roleCommand" : "SparkUploadJarCommand",
+      "runMode" : "single"
+    }
+  ],
+  "hdfsDirs" : [
     {
       "name" : "CreateSparkUserDirCommand",
       "label" : "Create Spark User Dir",
       "description" : "Creates the Spark user directory in HDFS.",
       "directoryDescription" : "Spark HDFS user directory",
       "path" : "/user/${user}",
-      "permissions" : "0750"
+      "permissions" : "0751"
     }
    ],
-   "serviceInit" : {
-     "preStartSteps" : [
-      { "commandName" : "CreateSparkUserDirCommand" }
-     ]
-   },
-   "parameters" : [
-     {
-       "name" : "identity_string",
-       "label" : "Identity String",
-       "description" : "The identity string of the Spark instance",
-       "configName" : "identity.string",
-       "required" : "false",
-       "type" : "string"
-     }
-   ],
-   "rolesWithExternalLinks" : ["SPARK_MASTER"],
-   "roles" : [
+  "serviceInit" : {
+    "preStartSteps" : [
+      {
+        "commandName" : "CreateSparkUserDirCommand"
+      },
+      {
+        "commandName" : "SparkUploadJarServiceCommand",
+        /** We allow a failure here because on kerberized clusters,
+            this command will always fail **/
+        "failureAllowed" : true
+      }
+    ]
+  },
+  "parameters" : [
     {
-       "name" : "SPARK_MASTER",
-       "label" : "Master",
-       "pluralLabel" : "Masters",
-       "startRunner" : {
-         "program" : "scripts/control.sh",
-         "args" : [
-            "start_master",
-            "./master.properties"
-         ],
-         "environmentVariables" : {
-            "SPARK_IDENT_STRING" : "${user}",
-            "SPARK_MASTER_PORT" : "${master_port}",
-            "SPARK_MASTER_WEBUI_PORT" : "${master_webui_port}",
-            "ADDITIONAL_ARGS" : "${master_additional_args}"
-         }
-       },
+      "name" : "identity_string",
+      "label" : "Identity String",
+      "description" : "The identity string of the Spark instance",
+      "configName" : "identity.string",
+      "required" : "false",
+      "type" : "string"
+    },
+    {
+      "name" : "spark_jar_hdfs_path",
+      "label" : "Spark Jar Location (HDFS)",
+      "description" : "The location of the Spark jar in HDFS",
+      "default" : "/user/spark/share/lib/spark-assembly.jar",
+      "type" : "string"
+    }
+  ],
+  "rolesWithExternalLinks" : ["SPARK_MASTER"],
+  "roles" : [
+    {
+      "name" : "SPARK_MASTER",
+      "label" : "Master",
+      "pluralLabel" : "Masters",
+      "startRunner" : {
+        "program" : "scripts/control.sh",
+        "args" : [
+           "start_master",
+           "./master.properties"
+        ],
+        "environmentVariables" : {
+           "SPARK_DAEMON_MEMORY" : "${master_max_heapsize}",
+           "SPARK_IDENT_STRING" : "${user}",
+           "SPARK_MASTER_PORT" : "${master_port}",
+           "SPARK_MASTER_WEBUI_PORT" : "${master_webui_port}",
+           "ADDITIONAL_ARGS" : "${master_additional_args}"
+        }
+      },
+      "commands" : [
+        {
+          "name" : "SparkUploadJarCommand",
+          "label" : "Upload Spark Jar",
+          "description" : "Upload Spark assembly jar to HDFS.",
+          "expectedExitCodes" : [0],
+          "requiredRoleState" : "stopped",
+          "commandRunner" : {
+            "program" : "scripts/control.sh",
+            "args" : ["upload_jar"],
+            "environmentVariables" : {
+              "SPARK_JAR_HDFS_PATH" : "${spark_jar_hdfs_path}"
+            }
+          }
+        }
+      ],
       "externalLink" : {
         "name" : "master_web_ui",
         "label" : "Master Web UI",
@@ -90,9 +132,10 @@
          "dir" : "/var/log/spark",
          "filename" : "spark-master-${host}.log",
          "configName" : "log.dir",
+         "modifiable" : true,
          "loggingType" : "log4j"
-       },
-       "parameters" : [
+      },
+      "parameters" : [
         {
           "name" : "master_port",
           "label" : "Master Port",
@@ -100,8 +143,7 @@
           "configName" : "server.port",
           "required" : "true",
           "type" : "port",
-          "default" : 7077,
-          "configurableInWizard" : true
+          "default" : 7077
         },
         {
           "name" : "master_webui_port",
@@ -110,8 +152,7 @@
           "configName" : "webui.port",
           "required" : "true",
           "type" : "port",
-          "default" : 18080,
-          "configurableInWizard" : true
+          "default" : 18080
         },
         {
           "name" : "master_additional_args",
@@ -121,6 +162,17 @@
           "required" : "false",
           "type" : "string",
           "default" : ""
+        },
+        {
+          "name" : "master_max_heapsize",
+          "label" : "Java Heap Size of Master in Bytes",
+          "description" : "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in bytes.",
+          "required" : "true",
+          "type" : "memory",
+          "unit" : "bytes",
+          "min" : 67108864,
+          "default" : 536870912,
+          "scaleFactor" : 1.3
         }
       ],
       "configWriter" : {
@@ -130,40 +182,42 @@
             "params" : ["master_port"],
             "roleName" : "SPARK_MASTER"
           }
-         ]
+        ]
       }
     },
     {
-       "name" : "SPARK_WORKER",
-       "label" : "Worker",
-       "pluralLabel" : "Workers",
-       "startRunner" : {
-         "program" : "scripts/control.sh",
-         "args" : [
-            "start_worker",
-            "./master.properties"
-         ],
-         "environmentVariables" : {
-            "SPARK_IDENT_STRING" : "${user}",
-            "SPARK_WORKER_PORT" : "${worker_port}",
-            "SPARK_WORKER_WEBUI_PORT" : "${worker_webui_port}",
-            "SPARK_WORKER_DIR" : "${work_directory}",
-            "ADDITIONAL_ARGS" : "${worker_additional_args}"
-         }
-       },
-       "externalLink" : {
-        "name" : "worker_web_ui",
-        "label" : "Worker Web UI",
-        "url" : "http://${host}:${worker_webui_port}"
-       },
-       "topology" : { "minInstances" : 1 },
-       "logging" : {
-         "dir" : "/var/log/spark",
-         "filename" : "spark-worker-${host}.log",
-	       "configName" : "log.dir",
-         "loggingType" : "log4j"
-       },
-       "parameters" : [
+      "name" : "SPARK_WORKER",
+      "label" : "Worker",
+      "pluralLabel" : "Workers",
+      "startRunner" : {
+        "program" : "scripts/control.sh",
+        "args" : [
+           "start_worker",
+           "./master.properties"
+        ],
+        "environmentVariables" : {
+           "SPARK_DAEMON_MEMORY" : "${worker_max_heapsize}",
+           "SPARK_IDENT_STRING" : "${user}",
+           "SPARK_WORKER_PORT" : "${worker_port}",
+           "SPARK_WORKER_WEBUI_PORT" : "${worker_webui_port}",
+           "SPARK_WORKER_DIR" : "${work_directory}",
+           "SPARK_WORKER_MEMORY" : "${executor_total_max_heapsize}",
+           "ADDITIONAL_ARGS" : "${worker_additional_args}"
+        }
+      },
+      "externalLink" : {
+       "name" : "worker_web_ui",
+       "label" : "Worker Web UI",
+       "url" : "http://${host}:${worker_webui_port}"
+      },
+      "topology" : { "minInstances" : 1 },
+      "logging" : {
+        "dir" : "/var/log/spark",
+        "filename" : "spark-worker-${host}.log",
+        "configName" : "log.dir",
+        "loggingType" : "log4j"
+      },
+      "parameters" : [
         {
           "name" : "worker_port",
           "label" : "Worker Port",
@@ -171,8 +225,7 @@
           "configName" : "server.port",
           "required" : "true",
           "type" : "port",
-          "default" : 7078,
-          "configurableInWizard" : true
+          "default" : 7078
         },
         {
           "name" : "worker_webui_port",
@@ -181,8 +234,7 @@
           "configName" : "webui.port",
           "required" : "true",
           "type" : "port",
-          "default" : 18081,
-          "configurableInWizard" : true
+          "default" : 18081
         },
         {
           "name" : "worker_additional_args",
@@ -202,6 +254,29 @@
           "type" : "path",
           "pathType" : "localDataDir",
           "default" : "/var/run/spark/work"
+        },
+        {
+          "name" : "worker_max_heapsize",
+          "label" : "Java Heap Size of Worker in Bytes",
+          "description" : "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in bytes.",
+          "required" : "true",
+          "type" : "memory",
+          "unit" : "bytes",
+          "min" : 67108864,
+          "default" : 536870912,
+          "scaleFactor" : 1.3
+        },
+        {
+          "name" : "executor_total_max_heapsize",
+          "label" : "Total Java Heap Sizes of Worker's Executors in Bytes",
+          "description" : "Memory available to the Worker's Executors. This is the maximum sum total of all the Executors' Java heap sizes on this Worker node. Passed to Java -Xmx. Measured in bytes.",
+          "required" : "true",
+          "type" : "memory",
+          "unit" : "bytes",
+          "min" : 67108864,
+          "default" : 8589934592,
+          "scaleFactor" : 1.3,
+          "autoConfigShare" : 100
         }
       ],
       "configWriter" : {
@@ -212,9 +287,53 @@
             "roleName" : "SPARK_MASTER"
           }
         ]
+      },
+      "cgroup" : {
+        "cpu" : {
+          "autoConfigured" : true
+        },
+        "blkio" : {
+          "autoConfigured" : true
+        }
       }
     }
-  ]
+  ],
+  "gateway" : {
+    "alternatives" : {
+      "name" : "spark-conf",
+      "priority" : 50,
+      "linkRoot" : "/etc/spark"
+    },
+    "scriptRunner" : {
+      "program" : "scripts/control.sh",
+      "args" : [
+        "client",
+        "master.properties"
+      ],
+      "environmentVariables" : {
+        "SPARK_JAR_HDFS_PATH" : "${spark_jar_hdfs_path}"
+      }
+    },
+    "configWriter" : {
+      "auxConfigGenerators" : [
+        {
+          "filename" : "spark-conf/spark-env.sh",
+          "sourceFilename" : "aux/client/spark-env.sh"
+        },
+        {
+          "filename" : "spark-conf/log4j.properties",
+          "sourceFilename" : "aux/client/log4j.properties"
+        }
+      ],
+      "peerConfigGenerators" : [
+        {
+          "filename" : "master.properties",
+          "params" : ["master_port"],
+          "roleName" : "SPARK_MASTER"
+        }
+      ]
+    }
+  }
 }
 
 

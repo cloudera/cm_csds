@@ -18,10 +18,18 @@
 ##
 
 # Time marker for both stderr and stdout
-date; date 1>&2
+date 1>&2
 
 CMD=$1
-MASTER_FILE=$2
+MASTER_FILE=$CONF_DIR/$2
+
+function log {
+  timestamp=$(date)
+  echo "$timestamp: $1"       #stdout
+  echo "$timestamp: $1" 1>&2; #stderr
+}
+
+log "Detected CDH_VERSION of [$CDH_VERSION]"
 
 DEFAULT_SPARK_HOME=/usr/lib/spark
 
@@ -31,11 +39,6 @@ export HADOOP_HOME=${HADOOP_HOME:-$CDH_HADOOP_HOME}
 # If SPARK_HOME is not set, make it the default
 export SPARK_HOME=${SPARK_HOME:-$DEFAULT_SPARK_HOME}
 
-function log {
-  timestamp=$(date)
-  echo "$timestamp: $1"
-}
-
 if [ ! -z $MASTER_FILE ]; then
   MASTER_IP=
   MASTER_PORT=
@@ -44,11 +47,11 @@ if [ ! -z $MASTER_FILE ]; then
     IFS=':' read -a tokens <<< "$line"
     host=${tokens[0]}
     property=${tokens[1]}
-  
+
     IFS='=' read -a tokens <<< "$property"
     key=${tokens[0]}
     value=${tokens[1]}
-  
+
     case $key in
      (server.port)
        MASTER_IP=$host
@@ -65,8 +68,14 @@ if [ ! -d "$SPARK_CONF_DIR" ]; then
   mkdir $SPARK_CONF_DIR
 fi
 
-# Copy the log4j directory to the config directory.
-cp $CONF_DIR/log4j.properties $SPARK_CONF_DIR/.
+# Copy the log4j directory to the config directory if it exists.
+if [ -f $CONF_DIR/log4j.properties ]; then
+  cp $CONF_DIR/log4j.properties $SPARK_CONF_DIR/.
+fi
+
+# Set JAVA_OPTS for the daemons
+# sets preference to IPV4
+export SPARK_DAEMON_JAVA_OPTS="$SPARK_DAEMON_JAVA_OPTS -Djava.net.preferIPv4Stack=true"
 
 ARGS=()
 case $CMD in
@@ -75,14 +84,67 @@ case $CMD in
     log "Starting Spark master on $MASTER_IP and port $MASTER_PORT"
     ARGS=("org.apache.spark.deploy.master.Master")
     ARGS+=("--ip $MASTER_IP")
-    ;;    
-  
+    ;;
+
   (start_worker)
     MASTER_URL="spark://$MASTER_IP:$MASTER_PORT"
     log "Starting Spark worker using $MASTER_URL"
     ARGS=("org.apache.spark.deploy.worker.Worker")
     ARGS+=($MASTER_URL)
-   ;;
+    ;;
+
+  (client)
+    log "Deploying client configuration"
+
+    CLIENT_CONF_DIR=$CONF_DIR/spark-conf
+    ENV_FILENAME="spark-env.sh"
+
+    perl -pi -e "s#{{MASTER_IP}}#$MASTER_IP#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+    perl -pi -e "s#{{MASTER_PORT}}#$MASTER_PORT#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+    perl -pi -e "s#{{HADOOP_HOME}}#$HADOOP_HOME#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+    perl -pi -e "s#{{SPARK_HOME}}#$SPARK_HOME#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+    perl -pi -e "s#{{SPARK_JAR_HDFS_PATH}}#$SPARK_JAR_HDFS_PATH#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+
+    exit 0
+    ;;
+
+  (upload_jar)
+
+    # The assembly jar does not exist in Spark for CDH4.
+    if [ $CDH_VERSION -lt 5 ]; then
+      log "Detected CDH [$CDH_VERSION]. Uploading Spark assembly jar skipped."
+      exit 0
+    fi
+
+    log "Uploading Spark assembly jar to '$SPARK_JAR_HDFS_PATH' on CDH $CDH_VERSION cluster"
+
+    PATTERN="$SPARK_HOME/assembly/lib/spark-assembly*cdh*.jar"
+    for jar in $PATTERN; do
+      if [ -f "$jar" ] ; then
+        # If there are multiple, use the first one
+        SPARK_JAR_LOCAL_PATH="$jar"
+        break
+      fi
+    done
+
+    if [ -z $SPARK_JAR_LOCAL_PATH ] ; then
+      log "Cannot find the assembly on local filesystem: $PATTERN"
+      exit 1
+    fi
+
+    # Does it already exist on HDFS?
+    if hdfs --config $CONF_DIR/hadoop-conf dfs -test -f "$SPARK_JAR_HDFS_PATH" ; then
+      BAK=$SPARK_JAR_HDFS_PATH.$(date +%s)
+      log "Backing up existing Spark jar as $BAK"
+      hdfs --config $CONF_DIR/hadoop-conf dfs -mv "$SPARK_JAR_HDFS_PATH" "$BAK"
+    else
+      # Create HDFS hierarchy
+      hdfs --config $CONF_DIR/hadoop-conf dfs -mkdir -p $(dirname "$SPARK_JAR_HDFS_PATH")
+    fi
+
+    hdfs --config $CONF_DIR/hadoop-conf dfs -put "$SPARK_JAR_LOCAL_PATH" "$SPARK_JAR_HDFS_PATH"
+    exit $?
+    ;;
 
   (*)
     log "Don't understand [$CMD]"
