@@ -12,6 +12,7 @@
   <modules>
     <module>SPARK</module>
     <module>ACCUMULO</module>
+    <module>SQOOP_CLIENT</module>
   </modules>
 
   <build>
