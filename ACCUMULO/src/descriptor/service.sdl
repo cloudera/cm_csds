@@ -17,14 +17,14 @@
   "name" : "ACCUMULO",
   "label" : "Accumulo",
   "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system.",
-  "version" : "1.0",
+  "version" : "1.1",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "4" } },
   "runAs" : {
     "user" : "accumulo",
     "group" : "accumulo"
   },
   "parcel" : {
-    "repoUrl" : "http://archive.cloudera.com/accumulo/parcels/latest/",
+    "repoUrl" : "http://archive.cloudera.com/accumulo/parcels/1.4/",
     "requiredTags" : [ "cdh", "accumulo" ],
     "optionalTags" : [ "accumulo-plugin" ]
   },
@@ -208,7 +208,7 @@
       "configName" : "accumulo_root_password",
       "description" : "Password for root Accumulo user. Used while initializing Accumulo. If you are chaging this and are using root user for tracing, make sure to set Trace Password to same value.",
       "required" : "true",
-      "type" : "string",
+      "type" : "password",
       "default" : "secret",
       "configurableInWizard" : true
     },
@@ -218,7 +218,7 @@
       "description" : "Trace Password. If you are using root user for tracing, then make sure it is set to same value as Root Password.",
       "configName" : "trace.password",
       "required" : "true",
-      "type" : "string",
+      "type" : "password",
       "default" : "secret",
       "configurableInWizard" : true
     },
@@ -396,8 +396,8 @@
           "configName" : "tserver.memory.maps.max",
           "required" : "true",
           "type" : "long",
-          "unit" : "megabytes",
-          "default" : 256
+          "unit" : "bytes",
+          "default" : 268435456
         },
         {
           "name" : "tserver_cache_data_size",
@@ -406,8 +406,8 @@
           "configName" : "tserver.cache.data.size",
           "required" : "true",
           "type" : "long",
-          "unit" : "megabytes",
-          "default" : 15
+          "unit" : "bytes",
+          "default" : 15728640
         },
         {
           "name" : "tserver_cache_index_size",
@@ -416,8 +416,8 @@
           "configName" : "tserver.cache.index.size",
           "required" : "true",
           "type" : "long",
-          "unit" : "megabytes",
-          "default" : 40
+          "unit" : "bytes",
+          "default" : 41943040
         },
         {
           "name" : "tserver_max_heapsize",
