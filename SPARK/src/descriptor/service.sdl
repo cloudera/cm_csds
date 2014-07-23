@@ -17,7 +17,7 @@
   "name" : "SPARK",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system",
-  "version" : "1.0",
+  "version" : "1.1",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
@@ -54,12 +54,23 @@
       "directoryDescription" : "Spark HDFS user directory",
       "path" : "/user/${user}",
       "permissions" : "0751"
+    },
+    {
+      "name" : "CreateSparkHistoryDirCommand",
+      "label" : "Create Spark History Log Dir",
+      "description" : "Creates the directory in HDFS where application history will be stored.",
+      "directoryDescription" : "Spark Application History directory",
+      "path" : "${spark_history_log_dir}",
+      "permissions" : "1777"
     }
-   ],
+  ],
   "serviceInit" : {
     "preStartSteps" : [
       {
         "commandName" : "CreateSparkUserDirCommand"
+      },
+      {
+        "commandName" : "CreateSparkHistoryDirCommand"
       },
       {
         "commandName" : "SparkUploadJarServiceCommand",
@@ -84,9 +95,17 @@
       "description" : "The location of the Spark jar in HDFS",
       "default" : "/user/spark/share/lib/spark-assembly.jar",
       "type" : "string"
+    },
+    {
+      "name" : "spark_history_log_dir",
+      "label" : "Spark History Location (HDFS)",
+      "description" : "The location of Spark application history logs in HDFS. Changing this value will not move existing logs to the new location.",
+      "configName" : "spark.eventLog.dir",
+      "default" : "/user/spark/applicationHistory",
+      "type" : "string"
     }
   ],
-  "rolesWithExternalLinks" : ["SPARK_MASTER"],
+  "rolesWithExternalLinks" : ["SPARK_MASTER", "SPARK_HISTORY_SERVER"],
   "roles" : [
     {
       "name" : "SPARK_MASTER",
@@ -214,6 +233,7 @@
       "logging" : {
         "dir" : "/var/log/spark",
         "filename" : "spark-worker-${host}.log",
+        "modifiable" : true,
         "configName" : "log.dir",
         "loggingType" : "log4j"
       },
@@ -273,7 +293,7 @@
           "required" : "true",
           "type" : "memory",
           "unit" : "bytes",
-          "min" : 67108864,
+          "min" : 536870912,
           "default" : 8589934592,
           "scaleFactor" : 1.3,
           "autoConfigShare" : 100
@@ -296,6 +316,58 @@
           "autoConfigured" : true
         }
       }
+    },
+    {
+      "name" : "SPARK_HISTORY_SERVER",
+      "label" : "History Server",
+      "pluralLabel" : "History Servers",
+      "startRunner" : {
+        "program" : "scripts/control.sh",
+        "args" : [
+           "start_history_server",
+           "",
+           "-d",
+           "${spark_history_log_dir}"
+        ],
+        "environmentVariables" : {
+           "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}",
+           // TODO: move to command line args History Server enhancements are backported.
+           "SPARK_DAEMON_JAVA_OPTS" : "-Dspark.history.ui.port=${history_server_web_port}"
+        }
+      },
+      "externalLink" : {
+        "name" : "history_server_web_ui",
+        "label" : "History Server Web UI",
+        "url" : "http://${host}:${history_server_web_port}"
+      },
+      "topology" : { "minInstances" : 0, "maxInstances" : 1 },
+      "logging" : {
+        "dir" : "/var/log/spark",
+        "filename" : "spark-history-server-${host}.log",
+        "modifiable" : true,
+        "loggingType" : "log4j"
+      },
+      "parameters" : [
+        {
+          "name" : "history_server_web_port",
+          "label" : "History Server WebUI Port",
+          "configName" : "history.port",
+          "description" : "The port of the history server WebUI",
+          "required" : "true",
+          "type" : "port",
+          "default" : 18088
+        },
+        {
+          "name" : "history_server_max_heapsize",
+          "label" : "Java Heap Size of History Server in Bytes",
+          "description" : "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in bytes.",
+          "required" : "true",
+          "type" : "memory",
+          "unit" : "bytes",
+          "min" : 67108864,
+          "default" : 268435456
+        }
+      ]
     }
   ],
   "gateway" : {
@@ -304,6 +376,17 @@
       "priority" : 50,
       "linkRoot" : "/etc/spark"
     },
+    "parameters" : [
+      {
+        "name" : "spark_history_enabled",
+        "label" : "Enable History",
+        "description" : "Write Spark application history logs to HDFS.",
+        "configName" : "spark.eventLog.enabled",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : true
+      }
+    ],
     "scriptRunner" : {
       "program" : "scripts/control.sh",
       "args" : [
@@ -315,6 +398,16 @@
       }
     },
     "configWriter" : {
+      "generators" : [
+        {
+          "filename" : "spark-conf/spark-defaults.conf",
+          "configFormat" : "properties",
+          "includedParams" : [
+            "spark_history_enabled",
+            "spark_history_log_dir"
+          ]
+        }
+      ],
       "auxConfigGenerators" : [
         {
           "filename" : "spark-conf/spark-env.sh",
@@ -330,6 +423,11 @@
           "filename" : "master.properties",
           "params" : ["master_port"],
           "roleName" : "SPARK_MASTER"
+        },
+        {
+          "filename" : "history.properties",
+          "params" : ["history_server_web_port"],
+          "roleName" : "SPARK_HISTORY_SERVER"
         }
       ]
     }

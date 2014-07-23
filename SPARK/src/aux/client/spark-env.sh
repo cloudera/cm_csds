@@ -22,3 +22,5 @@ export HADOOP_HOME=${HADOOP_HOME:-$DEFAULT_HADOOP_HOME}
 if [ -n "$HADOOP_HOME" ]; then
   export SPARK_LIBRARY_PATH=$SPARK_LIBRARY_PATH:${HADOOP_HOME}/lib/native
 fi
+
+export HADOOP_CONF_DIR=/etc/hadoop/conf

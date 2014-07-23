@@ -22,11 +22,19 @@ date 1>&2
 
 CMD=$1
 MASTER_FILE=$CONF_DIR/$2
+shift 2
 
 function log {
   timestamp=$(date)
   echo "$timestamp: $1"       #stdout
   echo "$timestamp: $1" 1>&2; #stderr
+}
+
+# Reads a line in the format "$host:$key=$value", setting those variables.
+function readconf {
+  local conf
+  IFS=':' read host conf <<< "$1"
+  IFS='=' read key value <<< "$conf"
 }
 
 log "Detected CDH_VERSION of [$CDH_VERSION]"
@@ -39,19 +47,12 @@ export HADOOP_HOME=${HADOOP_HOME:-$CDH_HADOOP_HOME}
 # If SPARK_HOME is not set, make it the default
 export SPARK_HOME=${SPARK_HOME:-$DEFAULT_SPARK_HOME}
 
-if [ ! -z $MASTER_FILE ]; then
+if [ -f $MASTER_FILE ]; then
   MASTER_IP=
   MASTER_PORT=
   for line in $(cat $MASTER_FILE)
   do
-    IFS=':' read -a tokens <<< "$line"
-    host=${tokens[0]}
-    property=${tokens[1]}
-
-    IFS='=' read -a tokens <<< "$property"
-    key=${tokens[0]}
-    value=${tokens[1]}
-
+    readconf "$line"
     case $key in
      (server.port)
        MASTER_IP=$host
@@ -93,6 +94,12 @@ case $CMD in
     ARGS+=($MASTER_URL)
     ;;
 
+  (start_history_server)
+    log "Starting Spark History Server"
+    ARGS=("org.apache.spark.deploy.history.HistoryServer")
+    ARGS+=($@)
+    ;;
+
   (client)
     log "Deploying client configuration"
 
@@ -104,6 +111,30 @@ case $CMD in
     perl -pi -e "s#{{HADOOP_HOME}}#$HADOOP_HOME#g" $CLIENT_CONF_DIR/$ENV_FILENAME
     perl -pi -e "s#{{SPARK_HOME}}#$SPARK_HOME#g" $CLIENT_CONF_DIR/$ENV_FILENAME
     perl -pi -e "s#{{SPARK_JAR_HDFS_PATH}}#$SPARK_JAR_HDFS_PATH#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+
+    SPARK_DEFAULTS=$CLIENT_CONF_DIR/spark-defaults.conf
+    echo "spark.master=spark://$MASTER_IP:$MASTER_PORT" >> $SPARK_DEFAULTS
+
+    # If a history server is configured, set its address in the default config file so that
+    # the Yarn RM web ui links to the history server for Spark apps.
+    HISTORY_PROPS=$CONF_DIR/history.properties
+    HISTORY_HOST=
+    if [ -f $HISTORY_PROPS ]; then
+      for line in $(cat $HISTORY_PROPS)
+      do
+        readconf "$line"
+        case $key in
+         (history.port)
+           HISTORY_HOST=$host
+           HISTORY_PORT=$value
+         ;;
+        esac
+      done
+      if [ -n "$HISTORY_HOST" ]; then
+        echo "spark.yarn.historyServer.address=http://$HISTORY_HOST:$HISTORY_PORT" >> \
+          $CONF_DIR/spark-conf/spark-defaults.conf
+      fi
+    fi
 
     exit 0
     ;;
