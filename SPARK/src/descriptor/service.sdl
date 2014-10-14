@@ -15,13 +15,14 @@
 // limitations under the License.
 {
   "name" : "SPARK",
-  "label" : "Spark",
-  "description" : "Apache Spark is an open source cluster computing system",
-  "version" : "1.1",
+  "label" : "Spark (Standalone)",
+  "description" : "Apache Spark is an open source cluster computing system. This is the standalone version of the service which does not use YARN for resource management. Cloudera recommends using Spark on YARN instead of this standalone version.",
+  "version" : "5.2.0",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
   },
+  /* CM removes it from Express Wizard for CDH 5 */
   "inExpressWizard" : true,
   "icon" : "images/icon.png",
   "parcel" : {
@@ -156,6 +157,15 @@
       },
       "parameters" : [
         {
+          "name" : "master_address",
+          "label" : "Master Address",
+          "description" : "Overrides the address where the Master will listen for connections. Note: Spark will not work if the wildcard (0.0.0.0) address is used here.",
+          "configName" : "server.address",
+          "required" : "false",
+          "type" : "string",
+          "default" : ""
+        },
+        {
           "name" : "master_port",
           "label" : "Master Port",
           "description" : "The port of the master",
@@ -198,7 +208,7 @@
         "peerConfigGenerators" : [
           {
             "filename" : "master.properties",
-            "params" : ["master_port"],
+            "params" : [ "master_address", "master_port" ],
             "roleName" : "SPARK_MASTER"
           }
         ]
@@ -303,7 +313,7 @@
         "peerConfigGenerators" : [
           {
             "filename" : "master.properties",
-            "params" : ["master_port"],
+            "params" : [ "master_address", "master_port" ],
             "roleName" : "SPARK_MASTER"
           }
         ]
@@ -421,7 +431,7 @@
       "peerConfigGenerators" : [
         {
           "filename" : "master.properties",
-          "params" : ["master_port"],
+          "params" : [ "master_address", "master_port" ],
           "roleName" : "SPARK_MASTER"
         },
         {

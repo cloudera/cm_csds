@@ -37,15 +37,32 @@ function readconf {
   IFS='=' read key value <<< "$conf"
 }
 
+function get_default_fs {
+  hdfs --config $1 getconf -confKey fs.defaultFS 2>/dev/null
+}
+
 log "Detected CDH_VERSION of [$CDH_VERSION]"
 
 DEFAULT_SPARK_HOME=/usr/lib/spark
 
+# Set this to not source defaults
+export BIGTOP_DEFAULTS_DIR=""
+
 export SPARK_HOME=${SPARK_HOME:-$CDH_SPARK_HOME}
 export HADOOP_HOME=${HADOOP_HOME:-$CDH_HADOOP_HOME}
+export HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
 
 # If SPARK_HOME is not set, make it the default
 export SPARK_HOME=${SPARK_HOME:-$DEFAULT_SPARK_HOME}
+
+### Let's run everything with JVM runtime, instead of Scala
+export SPARK_LAUNCH_WITH_SCALA=0
+export SPARK_LIBRARY_PATH=${SPARK_HOME}/lib
+export SCALA_LIBRARY_PATH=${SPARK_HOME}/lib
+
+if [ -n "$HADOOP_HOME" ]; then
+  export SPARK_LIBRARY_PATH=$SPARK_LIBRARY_PATH:${HADOOP_HOME}/lib/native
+fi
 
 if [ -f $MASTER_FILE ]; then
   MASTER_IP=
@@ -54,10 +71,17 @@ if [ -f $MASTER_FILE ]; then
   do
     readconf "$line"
     case $key in
-     (server.port)
-       MASTER_IP=$host
-       MASTER_PORT=$value
-     ;;
+      server.address)
+        if [ -n "$value" ]; then
+          MASTER_IP=$value
+        fi
+        ;;
+      server.port)
+        if [ -z "$MASTER_IP" ]; then
+          MASTER_IP=$host
+        fi
+        MASTER_PORT=$value
+        ;;
     esac
   done
   log "Found a master on $MASTER_IP listening on port $MASTER_PORT"
@@ -96,8 +120,11 @@ case $CMD in
 
   (start_history_server)
     log "Starting Spark History Server"
-    ARGS=("org.apache.spark.deploy.history.HistoryServer")
-    ARGS+=($@)
+    ARGS=(
+      "org.apache.spark.deploy.history.HistoryServer"
+      $1
+      $(get_default_fs $HADOOP_CONF_DIR)$2
+    )
     ;;
 
   (client)
@@ -115,6 +142,13 @@ case $CMD in
     SPARK_DEFAULTS=$CLIENT_CONF_DIR/spark-defaults.conf
     echo "spark.master=spark://$MASTER_IP:$MASTER_PORT" >> $SPARK_DEFAULTS
 
+    # SPARK 1.1 makes "file:" the default protocol for the location of event logs. So we need
+    # to fix the configuration file to add the protocol.
+    if grep -q 'spark.eventLog.dir' $SPARK_DEFAULTS; then
+      DEFAULT_FS=$(get_default_fs /etc/hadoop/conf)
+      perl -pi -e "s#(spark\\.eventLog\\.dir)=(.*)#\\1=$DEFAULT_FS\\2#" $SPARK_DEFAULTS
+    fi
+
     # If a history server is configured, set its address in the default config file so that
     # the Yarn RM web ui links to the history server for Spark apps.
     HISTORY_PROPS=$CONF_DIR/history.properties
@@ -124,10 +158,10 @@ case $CMD in
       do
         readconf "$line"
         case $key in
-         (history.port)
-           HISTORY_HOST=$host
-           HISTORY_PORT=$value
-         ;;
+          history.port)
+            HISTORY_HOST=$host
+            HISTORY_PORT=$value
+            ;;
         esac
       done
       if [ -n "$HISTORY_HOST" ]; then
@@ -164,16 +198,16 @@ case $CMD in
     fi
 
     # Does it already exist on HDFS?
-    if hdfs --config $CONF_DIR/hadoop-conf dfs -test -f "$SPARK_JAR_HDFS_PATH" ; then
+    if hdfs dfs -test -f "$SPARK_JAR_HDFS_PATH" ; then
       BAK=$SPARK_JAR_HDFS_PATH.$(date +%s)
       log "Backing up existing Spark jar as $BAK"
-      hdfs --config $CONF_DIR/hadoop-conf dfs -mv "$SPARK_JAR_HDFS_PATH" "$BAK"
+      hdfs dfs -mv "$SPARK_JAR_HDFS_PATH" "$BAK"
     else
       # Create HDFS hierarchy
-      hdfs --config $CONF_DIR/hadoop-conf dfs -mkdir -p $(dirname "$SPARK_JAR_HDFS_PATH")
+      hdfs dfs -mkdir -p $(dirname "$SPARK_JAR_HDFS_PATH")
     fi
 
-    hdfs --config $CONF_DIR/hadoop-conf dfs -put "$SPARK_JAR_LOCAL_PATH" "$SPARK_JAR_HDFS_PATH"
+    hdfs dfs -put "$SPARK_JAR_LOCAL_PATH" "$SPARK_JAR_HDFS_PATH"
     exit $?
     ;;
 

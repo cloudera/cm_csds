@@ -9,7 +9,7 @@ export SPARK_MASTER_PORT={{MASTER_PORT}}
 export DEFAULT_HADOOP_HOME={{HADOOP_HOME}}
 
 ### Path of Spark assembly jar in HDFS
-export SPARK_JAR_HDFS_PATH={{SPARK_JAR_HDFS_PATH}}
+export SPARK_JAR_HDFS_PATH=${SPARK_JAR_HDFS_PATH:-{{SPARK_JAR_HDFS_PATH}}}
 
 ### Let's run everything with JVM runtime, instead of Scala
 export SPARK_LAUNCH_WITH_SCALA=0
@@ -23,4 +23,4 @@ if [ -n "$HADOOP_HOME" ]; then
   export SPARK_LIBRARY_PATH=$SPARK_LIBRARY_PATH:${HADOOP_HOME}/lib/native
 fi
 
-export HADOOP_CONF_DIR=/etc/hadoop/conf
+export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-/etc/hadoop/conf}
