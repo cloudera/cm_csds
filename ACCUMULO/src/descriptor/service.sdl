@@ -17,7 +17,7 @@
   "name" : "ACCUMULO",
   "label" : "Accumulo",
   "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system.",
-  "version" : "1.1",
+  "version" : "5.2.0",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "4" } },
   "runAs" : {
     "user" : "accumulo",
@@ -265,6 +265,9 @@
           "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
         }
       },
+      "kerberosPrincipals" : [
+        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+      ],
       "commands" : [
         {
           "name" : "AccumuloInitCommand",
@@ -325,6 +328,9 @@
           "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
         }
       },
+      "kerberosPrincipals" : [
+        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+      ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "logger-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
@@ -377,6 +383,9 @@
           "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
         }
       },
+      "kerberosPrincipals" : [
+        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+      ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "tserver-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
@@ -456,6 +465,9 @@
           "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
         }
       },
+      "kerberosPrincipals" : [
+        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+      ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "gc-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
@@ -495,6 +507,9 @@
           "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
         }
       },
+      "kerberosPrincipals" : [
+        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+      ],
       "externalLink" : {
         "name" : "monitor_web_ui",
         "label" : "Monitor Web UI",
@@ -539,6 +554,9 @@
           "ACCUMULO_CLASSPATH" : "${accumulo_classpath}"
         }
       },
+      "kerberosPrincipals" : [
+        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+      ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "tracer-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
         "generators" : [
