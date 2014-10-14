@@ -6,12 +6,12 @@
   <parent>
     <groupId>com.cloudera</groupId>
     <artifactId>csd</artifactId>
-    <version>1.1</version>
+    <version>5.2.0</version>
   </parent>
 
   <groupId>com.cloudera.csd</groupId>
   <artifactId>ACCUMULO16</artifactId>
-  <version>1.1</version>
+  <version>5.2.0</version>
   <name>The Accumulo 1.6 CSD</name>
   <packaging>pom</packaging>
 

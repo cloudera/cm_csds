@@ -31,6 +31,9 @@ add_to_accumulo_site() {
 
 set -x
 
+# Source the common script to use acquire_kerberos_tgt
+. $COMMON_SCRIPT
+
 # Set env vars needed for Accumulo
 export ACCUMULO_HOME=${CDH_ACCUMULO_HOME:-/usr/lib/accumulo}
 export HADOOP_HOME_WARN_SUPPRESS=true
@@ -76,6 +79,13 @@ if [ "$ACCUMULO_CLASSPATH" != "" ]; then
 fi
 add_to_accumulo_site general.classpaths $FULL_CLASSPATH
 
+if [ "$accumulo_principal" != "" ]; then
+  add_to_accumulo_site general.kerberos.keytab $CONF_DIR/accumulo16.keytab
+  HOSTNAME=`hostname`
+  PRINCIPAL="${accumulo_principal/$HOSTNAME/_HOST}" # Insert host wildcard in principal name
+  add_to_accumulo_site general.kerberos.principal $PRINCIPAL
+fi
+
 if [ -z $ACCUMULO_OTHER_OPTS ]; then
   export ACCUMULO_OTHER_OPTS=" -Xmx1g "
 fi
@@ -106,6 +116,10 @@ elif [ "$1" = "init" ]; then
   echo $INSTANCE_NAME > script
   echo $INSTANCE_PASSWORD >> script
   echo $INSTANCE_PASSWORD >> script
+  if [ "$accumulo_principal" != "" ]; then
+    export SCM_KERBEROS_PRINCIPAL=$accumulo_principal
+    acquire_kerberos_tgt accumulo16.keytab
+  fi
   cat script | $ACCUMULO_HOME/bin/accumulo init
   exit $?
 elif [ "$1" = "upgrade" ]; then
