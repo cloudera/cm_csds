@@ -1,19 +1,24 @@
-<!-- Copyright (c) 2014 Cloudera, Inc. All rights reserved. -->
+<!-- Copyright (c) 2013 Cloudera, Inc. All rights reserved. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>1.1</version>
-  <name>The Cloudera Manager CSDs</name>
+  <version>5.2.0</version>
+  <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
   <modules>
-    <module>SPARK</module>
+    <module>ECHO</module>
     <module>ACCUMULO</module>
     <module>ACCUMULO16</module>
+    <module>SPARK</module>
+    <module>SPARK_ON_YARN</module>
     <module>SQOOP_CLIENT</module>
+    <module>ISILON</module>
+    <module>KMS</module>
+    <module>KEYTRUSTEE</module>
   </modules>
 
   <build>
@@ -30,5 +35,18 @@
         </plugin>
     </plugins>
   </build>
+  
+ <distributionManagement>
+   <repository>
+      <id>cdh.releases.repo</id>
+      <url>http://maven.jenkins.cloudera.com:8081/artifactory/libs-release-local</url>
+      <name>Releases Repository</name>
+    </repository>
+    <snapshotRepository>
+      <id>cdh.snapshots.repo</id>
+      <url>http://maven.jenkins.cloudera.com:8081/artifactory/libs-snapshot-local</url>
+      <name>Snapshots Repository</name>
+    </snapshotRepository>
+ </distributionManagement>
 
 </project>
