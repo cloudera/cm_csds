@@ -1,0 +1,285 @@
+{
+  "name" : "KMS",
+  "label" : "KMS",
+  "description" : "The Hadoop Key Management Service with a file-based Java key store; maintains a single copy of keys, using simple password-based protection. <span class=\"error\">Not recommended for production use and not supported at this time.</span>",
+  "version" : "5.2.0",
+  "runAs" : {
+    "user" : "kms",
+    "group" : "kms"
+  },
+  "compatibility" : {
+    "cdhVersion" : {
+      "min" : "5.2"
+    }
+  },
+  "providesKms" : {
+    "roleName" : "KMS",
+    "insecureUrl" : "http://${host}:${kms_http_port}/kms",
+    "secureUrl" : "https://${host}:${kms_http_port}/kms"
+  },
+  "parcel": {
+    "requiredTags" : ["cdh"]
+  },
+  "kerberos" : "${hadoop_kms_authentication_type}",
+  "parameters" : [
+    {
+      "name" : "hadoop_kms_authentication_type",
+      "label" : "Authentication Type",
+      "description" : "Authentication type for the KMS. Can either be \"simple\" or \"kerberos\".",
+      "required" : "true",
+      "configName" : "hadoop.kms.authentication.type",
+      "type" : "string_enum",
+      "validValues": ["simple", "kerberos"],
+      "default" : "simple"
+    }
+  ],
+  "roles" : [
+    {
+      "name" : "KMS",
+      "label" : "Key Management Server",
+      "pluralLabel" : "Key Management Servers",
+      "startRunner" : {
+        "program" : "scripts/control.sh",
+        "args" : [
+          "start"
+        ],
+        "environmentVariables" : {
+          "KMS_STAGING_DIR" : "${kms_staging_dir}",
+          "KMS_HTTP_PORT" : "${kms_http_port}",
+          "KMS_ADMIN_PORT" : "${kms_admin_port}",
+          "KMS_MAX_THREADS" : "${kms_max_threads}",
+          "KMS_HEAP_SIZE" : "${kms_heap_size}",
+          "KMS_LOG" : "${log_dir}", // sets the KMS log dir
+          "SSL_ENABLED" : "${ssl_enabled}",
+          "KMS_SSL_KEYSTORE_FILE" : "${ssl_server_keystore_location}",
+          "KMS_SSL_KEYSTORE_PASS" : "${ssl_server_keystore_password}"
+        }
+      },
+      "topology" : {
+        "minInstances" : "1",
+        "maxInstances" : "1"
+      },
+      "kerberosPrincipals" : [
+        {
+        "name" : "kms_principal",
+        "primary" : "HTTP",
+        "instance" : "${host}"
+        }
+      ],
+      "sslServer" : {
+        // TODO change "tomcat" to something else, might require KMS code change
+        "keyIdentifier" : "tomcat"
+      },
+      "logging" : {
+        "dir" : "/var/log/hadoop-kms",
+        "filename" : "kms.log",
+        "configFilename" : "kms-log4j.properties",
+        "configName" : "log.dir",
+        "modifiable" : true,
+        "loggingType" : "log4j",
+        "additionalConfigs" : [
+        {
+          "key" : "log4j.appender.kms-audit",
+          "value" : "org.apache.log4j.DailyRollingFileAppender"
+        },
+        {
+          "key" : "log4j.appender.kms-audit.DatePattern",
+          "value" : "'.'yyy-MM-dd"
+        },
+        {
+          "key" : "log4j.appender.kms-audit.File",
+          "value" : "${log_dir}/kms-audit.log"
+        },
+        {
+          "key" : "log4j.appender.kms-audit.Append",
+          "value" : "true"
+        },
+        {
+          "key" : "log4j.appender.kms-audit.layout",
+          "value" : "org.apache.log4j.PatternLayout"
+        },
+        {
+          "key" : "log4j.appender.kms-audit.layout.ConversionPattern",
+          "value" : "%d{ISO8601} %m%n"
+        },
+        {
+          "key" : "log4j.logger.kms-audit",
+          "value" : "INFO, kms-audit"
+        },
+        {
+          "key" : "log4j.additivity.kms-audit",
+          "value" : "false"
+        },
+        {
+          "key" : "log4j.logger.com.sun.jersey.server.wadl.generators.WadlGeneratorJAXBGrammarGenerator",
+          "value" : "OFF"
+        }
+        ]
+      },
+      "parameters" : [
+        {
+          "name" : "kms_http_port",
+          "label" : "KMS HTTP Port",
+          "description" : "Port used by clients to interact with the KMS.",
+          "required" : "true",
+          "type" : "port",
+          "default" : "16000"
+        },
+        {
+          "name" : "kms_admin_port",
+          "label" : "KMS Admin Port",
+          "description" : "Port used to access the KMS' embedded Tomcat admin console.",
+          "required" : "true",
+          "type" : "port",
+          "default" : "16001"
+        },
+        {
+          "name" : "kms_max_threads",
+          "label" : "KMS Max Threads",
+          "description" : "Maximum number of threads used to handle KMS requests.",
+          "type" : "long",
+          "min" : "1",
+          "default" : "250"
+        },
+        {
+          "name" : "kms_heap_size",
+          "label" : "KMS Heap Size",
+          "description" : "Maximum heap size of the KMS.",
+          "type" : "memory",
+          "unit" : "bytes",
+          "required" : "true",
+          "min" : 67108864,
+          "default" : 1073741824,
+          "scaleFactor" : "1.3"
+        },
+        // TODO: improve the descriptions once SSL configs land
+        {
+          // Note that the name and configName differ here, since we munge the
+          // path provided by the user into the actual config, which is a URI
+          "name" : "hadoop_security_key_provider_dir",
+          "label" : "JavaKeyStoreProvider Directory",
+          "description" : "Directory of the keystore file kms.keystore used by JavaKeyStoreProvider that backs the KMS.",
+          "required" : "true",
+          "configName" : "hadoop.kms.key.provider.uri",
+          "type" : "path",
+          "pathType" : "localDataDir",
+          "configurableInWizard" : true,
+          "mode" : "0700",
+          "default" : "/var/lib/kms"
+        },
+        {
+          "name" : "hadoop_security_keystore_javaKeyStoreProvider_password",
+          "label" : "JavaKeyStoreProvider Password",
+          "description" : "The password for the JavaKeyStoreProvider keystore file.",
+          "configName" : "hadoop.security.keystore.JavaKeyStoreProvider.password",
+          "type" : "password"
+        },
+        // TODO: regex validation for ACLs? More explanation of the format?
+        {
+          "name" : "kms_blacklist_users",
+          "label" : "KMS Blacklist Users",
+          "description" : "A comma-separated list of users (no spaces) for whom to disallow access to key material. These users can still fetch key metadata and create encrypted encryption keys, but are unable to do any other KMS operations. Typically, HDFS superusers will be specified here.",
+          "type" : "string",
+          "default" : ""
+        },
+        {
+          "name" : "kms_staging_dir",
+          "label" : "KMS Staging Directory",
+          "description" : "Directory where configuration and binaries are staged before starting KMS. Does not normally need to be modified.",
+          "required" : "true",
+          "type" : "path",
+          "pathType" : "localDataDir",
+          "mode" : "0700",
+          "default" : "/var/lib/hadoop-kms"
+        }
+      ],
+      "configWriter" : {
+        "generators" : [
+          {
+            "filename" : "kms-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams": ["hadoop_security_keystore_javaKeyStoreProvider_password", "hadoop_kms_authentication_type"],
+            "kerberosPrincipals" : [
+              {
+                "principalName" : "kms_principal",
+                "propertyName" : "hadoop.kms.authentication.kerberos.principal"
+              }
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "hadoop.kms.key.provider.uri",
+                "value" : "jceks://file@${hadoop_security_key_provider_dir}/kms.keystore"
+              },
+              {
+                "key" : "hadoop.kms.authentication.kerberos.name.rules",
+                "value" : "DEFAULT"
+              },
+              {
+                "key" : "hadoop.kms.authentication.kerberos.keytab",
+                "value" : "{{CONF_DIR}}/kms.keytab"
+              }
+            ]
+          },
+          {
+            "filename" : "kms-acls.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams": [],
+            "additionalConfigs" : [
+              // blacklist ACLs
+              {
+                "key" : "hadoop.kms.blacklist.CREATE",
+                "value" : "${kms_blacklist_users}"
+              },
+              {
+                "key" : "hadoop.kms.blacklist.DELETE",
+                "value" : "${kms_blacklist_users}"
+              },
+              {
+                "key" : "hadoop.kms.blacklist.ROLLOVER",
+                "value" : "${kms_blacklist_users}"
+              },
+              {
+                "key" : "hadoop.kms.blacklist.GET",
+                "value" : "${kms_blacklist_users}"
+              },
+              {
+                "key" : "hadoop.kms.blacklist.GET_KEYS",
+                "value" : "${kms_blacklist_users}"
+              },
+              {
+                "key" : "hadoop.kms.blacklist.SET_KEY_MATERIAL",
+                "value" : "${kms_blacklist_users}"
+              },
+              {
+                "key" : "hadoop.kms.blacklist.DECRYPT_EEK",
+                "value" : "${kms_blacklist_users}"
+              },
+              // default key ACLs
+              {
+                "key" : "default.key.acl.MANAGEMENT",
+                "value" : "*"
+              },
+              {
+                "key" : "default.key.acl.GENERATE_EEK",
+                "value" : "*"
+              },
+              {
+                "key" : "default.key.acl.DECRYPT_EEK",
+                "value" : "*"
+              },
+              {
+                "key" : "default.key.acl.READ",
+                "value" : "*"
+              }
+            ]
+          },
+          {
+            "filename" : "core-site.xml",
+            "configFormat" : "hadoop_xml",
+            "includedParams": []
+          }
+        ]
+      }
+    }
+  ]
+}
