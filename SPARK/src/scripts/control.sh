@@ -38,7 +38,28 @@ function readconf {
 }
 
 function get_default_fs {
-  hdfs --config $1 getconf -confKey fs.defaultFS 2>/dev/null
+  $HDFS_BIN --config $1 getconf -confKey fs.defaultFS 2>/dev/null
+}
+
+# replace $1 with $2 in file $3
+function replace {
+  perl -pi -e "s#${1}#${2}#g" $3
+}
+
+# prepare the spark-env.sh file specified in $1 for use.
+function prepare_spark_env {
+  local SPARK_ENV=$1
+  replace "{{MASTER_IP}}" "$MASTER_IP" $SPARK_ENV
+  replace "{{MASTER_PORT}}" "$MASTER_PORT" $SPARK_ENV
+  replace "{{HADOOP_HOME}}" "$HADOOP_HOME" $SPARK_ENV
+  replace "{{SPARK_HOME}}" "$SPARK_HOME" $SPARK_ENV
+  replace "{{SPARK_EXTRA_LIB_PATH}}" "$SPARK_EXTRA_LIB_PATH" $SPARK_ENV
+  replace "{{SPARK_JAR_HDFS_PATH}}" "$SPARK_JAR_HDFS_PATH" $SPARK_ENV
+  replace "{{HIVE_HOME}}" "$CDH_HIVE_HOME" $SPARK_ENV
+  replace "{{FLUME_HOME}}" "$CDH_FLUME_HOME" $SPARK_ENV
+  replace "{{PARQUET_HOME}}" "$CDH_HADOOP_HOME/../parquet" $SPARK_ENV
+  replace "{{AVRO_HOME}}" "$CDH_HADOOP_HOME/../avro" $SPARK_ENV
+  replace "{{HADOOP_EXTRA_CLASSPATH}}" "$HADOOP_CLASSPATH" $SPARK_ENV
 }
 
 log "Detected CDH_VERSION of [$CDH_VERSION]"
@@ -51,18 +72,30 @@ export BIGTOP_DEFAULTS_DIR=""
 export SPARK_HOME=${SPARK_HOME:-$CDH_SPARK_HOME}
 export HADOOP_HOME=${HADOOP_HOME:-$CDH_HADOOP_HOME}
 export HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
+export HDFS_BIN=$HADOOP_HOME/../../bin/hdfs
 
 # If SPARK_HOME is not set, make it the default
 export SPARK_HOME=${SPARK_HOME:-$DEFAULT_SPARK_HOME}
+
+# CSD plugins may modify SPARK_LIBRARY_PATH to point to other needed native library paths.
+# Stash that value in a separate variable since we use SPARK_LIBRARY_PATH to support Spark 0.9
+# (from CDH 5.0).
+SPARK_EXTRA_LIB_PATH="$SPARK_LIBRARY_PATH"
 
 ### Let's run everything with JVM runtime, instead of Scala
 export SPARK_LAUNCH_WITH_SCALA=0
 export SPARK_LIBRARY_PATH=${SPARK_HOME}/lib
 export SCALA_LIBRARY_PATH=${SPARK_HOME}/lib
 
+ENV_FILENAME="spark-env.sh"
+
 if [ -n "$HADOOP_HOME" ]; then
-  export SPARK_LIBRARY_PATH=$SPARK_LIBRARY_PATH:${HADOOP_HOME}/lib/native
+  SPARK_LIBRARY_PATH=$SPARK_LIBRARY_PATH:${HADOOP_HOME}/lib/native
 fi
+if [ -n "$SPARK_EXTRA_LIB_PATH" ]; then
+  SPARK_LIBRARY_PATH="$SPARK_LIBRARY_PATH:$SPARK_EXTRA_LIB_PATH"
+fi
+export SPARK_LIBRARY_PATH
 
 if [ -f $MASTER_FILE ]; then
   MASTER_IP=
@@ -107,19 +140,22 @@ case $CMD in
 
   (start_master)
     log "Starting Spark master on $MASTER_IP and port $MASTER_PORT"
+    prepare_spark_env $SPARK_CONF_DIR/$ENV_FILENAME
     ARGS=("org.apache.spark.deploy.master.Master")
     ARGS+=("--ip $MASTER_IP")
     ;;
 
   (start_worker)
-    MASTER_URL="spark://$MASTER_IP:$MASTER_PORT"
     log "Starting Spark worker using $MASTER_URL"
+    prepare_spark_env $SPARK_CONF_DIR/$ENV_FILENAME
+    MASTER_URL="spark://$MASTER_IP:$MASTER_PORT"
     ARGS=("org.apache.spark.deploy.worker.Worker")
     ARGS+=($MASTER_URL)
     ;;
 
   (start_history_server)
     log "Starting Spark History Server"
+    prepare_spark_env $SPARK_CONF_DIR/$ENV_FILENAME
     ARGS=(
       "org.apache.spark.deploy.history.HistoryServer"
       $1
@@ -131,13 +167,16 @@ case $CMD in
     log "Deploying client configuration"
 
     CLIENT_CONF_DIR=$CONF_DIR/spark-conf
-    ENV_FILENAME="spark-env.sh"
+    prepare_spark_env $CLIENT_CONF_DIR/$ENV_FILENAME
 
-    perl -pi -e "s#{{MASTER_IP}}#$MASTER_IP#g" $CLIENT_CONF_DIR/$ENV_FILENAME
-    perl -pi -e "s#{{MASTER_PORT}}#$MASTER_PORT#g" $CLIENT_CONF_DIR/$ENV_FILENAME
-    perl -pi -e "s#{{HADOOP_HOME}}#$HADOOP_HOME#g" $CLIENT_CONF_DIR/$ENV_FILENAME
-    perl -pi -e "s#{{SPARK_HOME}}#$SPARK_HOME#g" $CLIENT_CONF_DIR/$ENV_FILENAME
-    perl -pi -e "s#{{SPARK_JAR_HDFS_PATH}}#$SPARK_JAR_HDFS_PATH#g" $CLIENT_CONF_DIR/$ENV_FILENAME
+    # Move the Yarn configuration under the Spark config. Do not overwrite Spark's log4j config.
+    HADOOP_CLIENT_CONF_DIR=$CLIENT_CONF_DIR/yarn-conf
+    mkdir $HADOOP_CLIENT_CONF_DIR
+    for i in $HADOOP_CONF_DIR/*; do
+      if [ $(basename "$i") != log4j.properties ]; then
+        mv $i $HADOOP_CLIENT_CONF_DIR
+      fi
+    done
 
     SPARK_DEFAULTS=$CLIENT_CONF_DIR/spark-defaults.conf
     echo "spark.master=spark://$MASTER_IP:$MASTER_PORT" >> $SPARK_DEFAULTS
@@ -145,8 +184,8 @@ case $CMD in
     # SPARK 1.1 makes "file:" the default protocol for the location of event logs. So we need
     # to fix the configuration file to add the protocol.
     if grep -q 'spark.eventLog.dir' $SPARK_DEFAULTS; then
-      DEFAULT_FS=$(get_default_fs /etc/hadoop/conf)
-      perl -pi -e "s#(spark\\.eventLog\\.dir)=(.*)#\\1=$DEFAULT_FS\\2#" $SPARK_DEFAULTS
+      DEFAULT_FS=$(get_default_fs $HADOOP_CLIENT_CONF_DIR)
+      replace "(spark\\.eventLog\\.dir)=(.*)" "\\1=$DEFAULT_FS\\2" $SPARK_DEFAULTS
     fi
 
     # If a history server is configured, set its address in the default config file so that
@@ -170,6 +209,17 @@ case $CMD in
       fi
     fi
 
+    # Set the default library paths for drivers and executors.
+    EXTRA_LIB_PATH="$HADOOP_HOME/lib/native"
+    if [ -n "$SPARK_EXTRA_LIB_PATH" ]; then
+      EXTRA_LIB_PATH="$EXTRA_LIB_PATH:$SPARK_EXTRA_LIB_PATH"
+    fi
+    for i in driver executor; do
+      if ! grep -q "^spark\\.${i}\\.extraLibraryPath" $SPARK_DEFAULTS; then
+        echo "spark.${i}.extraLibraryPath=$EXTRA_LIB_PATH" >> $SPARK_DEFAULTS
+      fi
+    done
+
     exit 0
     ;;
 
@@ -183,7 +233,11 @@ case $CMD in
 
     log "Uploading Spark assembly jar to '$SPARK_JAR_HDFS_PATH' on CDH $CDH_VERSION cluster"
 
-    PATTERN="$SPARK_HOME/assembly/lib/spark-assembly*cdh*.jar"
+    if [ -d $SPARK_HOME/assembly/lib ]; then
+      PATTERN="$SPARK_HOME/assembly/lib/spark-assembly*cdh*.jar"
+    else
+      PATTERN="$SPARK_HOME/lib/spark-assembly-*.jar"
+    fi
     for jar in $PATTERN; do
       if [ -f "$jar" ] ; then
         # If there are multiple, use the first one
@@ -198,16 +252,16 @@ case $CMD in
     fi
 
     # Does it already exist on HDFS?
-    if hdfs dfs -test -f "$SPARK_JAR_HDFS_PATH" ; then
+    if $HDFS_BIN dfs -test -f "$SPARK_JAR_HDFS_PATH" ; then
       BAK=$SPARK_JAR_HDFS_PATH.$(date +%s)
       log "Backing up existing Spark jar as $BAK"
-      hdfs dfs -mv "$SPARK_JAR_HDFS_PATH" "$BAK"
+      $HDFS_BIN dfs -mv "$SPARK_JAR_HDFS_PATH" "$BAK"
     else
       # Create HDFS hierarchy
-      hdfs dfs -mkdir -p $(dirname "$SPARK_JAR_HDFS_PATH")
+      $HDFS_BIN dfs -mkdir -p $(dirname "$SPARK_JAR_HDFS_PATH")
     fi
 
-    hdfs dfs -put "$SPARK_JAR_LOCAL_PATH" "$SPARK_JAR_HDFS_PATH"
+    $HDFS_BIN dfs -put "$SPARK_JAR_LOCAL_PATH" "$SPARK_JAR_HDFS_PATH"
     exit $?
     ;;
 

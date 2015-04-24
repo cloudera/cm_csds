@@ -17,7 +17,7 @@
   "name" : "SPARK",
   "label" : "Spark (Standalone)",
   "description" : "Apache Spark is an open source cluster computing system. This is the standalone version of the service which does not use YARN for resource management. Cloudera recommends using Spark on YARN instead of this standalone version.",
-  "version" : "5.2.0",
+  "version" : "5.4.0",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
@@ -74,10 +74,7 @@
         "commandName" : "CreateSparkHistoryDirCommand"
       },
       {
-        "commandName" : "SparkUploadJarServiceCommand",
-        /** We allow a failure here because on kerberized clusters,
-            this command will always fail **/
-        "failureAllowed" : true
+        "commandName" : "SparkUploadJarServiceCommand"
       }
     ]
   },
@@ -211,6 +208,12 @@
             "params" : [ "master_address", "master_port" ],
             "roleName" : "SPARK_MASTER"
           }
+        ],
+        "auxConfigGenerators" : [
+          {
+            "filename" : "config/spark-env.sh",
+            "sourceFilename" : "aux/client/spark-env.sh"
+          }
         ]
       }
     },
@@ -316,6 +319,12 @@
             "params" : [ "master_address", "master_port" ],
             "roleName" : "SPARK_MASTER"
           }
+        ],
+        "auxConfigGenerators" : [
+          {
+            "filename" : "config/spark-env.sh",
+            "sourceFilename" : "aux/client/spark-env.sh"
+          }
         ]
       },
       "cgroup" : {
@@ -377,7 +386,15 @@
           "min" : 67108864,
           "default" : 268435456
         }
-      ]
+      ],
+      "configWriter" : {
+        "auxConfigGenerators" : [
+          {
+            "filename" : "config/spark-env.sh",
+            "sourceFilename" : "aux/client/spark-env.sh"
+          }
+        ]
+      }
     }
   ],
   "gateway" : {
