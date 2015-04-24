@@ -17,11 +17,12 @@
   "name" : "ACCUMULO",
   "label" : "Accumulo",
   "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system.",
-  "version" : "5.2.0",
+  "version" : "5.4.0",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "4" } },
   "runAs" : {
     "user" : "accumulo",
-    "group" : "accumulo"
+    "group" : "accumulo",
+    "principal" : "accumulo"
   },
   "parcel" : {
     "repoUrl" : "http://archive.cloudera.com/accumulo/parcels/1.4/",
@@ -120,7 +121,7 @@
       "label" : "Create Accumulo User Dir",
       "description" : "Creates the Accumulo user directory in HDFS.",
       "directoryDescription" : "Accumulo HDFS user directory",
-      "path" : "/user/${user}",
+      "path" : "/user/${principal}",
       "permissions" : "0750"
     }
   ],
@@ -266,7 +267,7 @@
         }
       },
       "kerberosPrincipals" : [
-        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+        {"name" : "accumulo_principal", "primary" : "${principal}", "instance" : "${host}"}
       ],
       "commands" : [
         {
@@ -295,6 +296,9 @@
           {
             "filename" : "accumulo-site.xml",
             "configFormat" : "hadoop_xml",
+            "kerberosPrincipals" : [
+              { "principalName" : "accumulo_principal", "propertyName" : "general.kerberos.principal", "instanceWildcard" : "_HOST"}
+            ],
             "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"]
           }
         ]
@@ -329,7 +333,7 @@
         }
       },
       "kerberosPrincipals" : [
-        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+        {"name" : "accumulo_principal", "primary" : "${principal}", "instance" : "${host}"}
       ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "logger-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
@@ -337,6 +341,9 @@
           {
             "filename" : "accumulo-site.xml",
             "configFormat" : "hadoop_xml",
+            "kerberosPrincipals" : [
+              { "principalName" : "accumulo_principal", "propertyName" : "general.kerberos.principal", "instanceWildcard" : "_HOST"}
+            ],
             "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "logger_dir_walog"]
           }
         ]
@@ -384,7 +391,7 @@
         }
       },
       "kerberosPrincipals" : [
-        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+        {"name" : "accumulo_principal", "primary" : "${principal}", "instance" : "${host}"}
       ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "tserver-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
@@ -392,6 +399,9 @@
           {
             "filename" : "accumulo-site.xml",
             "configFormat" : "hadoop_xml",
+            "kerberosPrincipals" : [
+              { "principalName" : "accumulo_principal", "propertyName" : "general.kerberos.principal", "instanceWildcard" : "_HOST"}
+            ],
             "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "tserver_memory_maps_max", "tserver_cache_data_size", "tserver_cache_index_size"]
           }
         ]
@@ -466,7 +476,7 @@
         }
       },
       "kerberosPrincipals" : [
-        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+        {"name" : "accumulo_principal", "primary" : "${principal}", "instance" : "${host}"}
       ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "gc-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
@@ -474,6 +484,9 @@
           {
             "filename" : "accumulo-site.xml",
             "configFormat" : "hadoop_xml",
+            "kerberosPrincipals" : [
+              { "principalName" : "accumulo_principal", "propertyName" : "general.kerberos.principal", "instanceWildcard" : "_HOST"}
+            ],
             "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication"]
           }
         ]
@@ -508,7 +521,7 @@
         }
       },
       "kerberosPrincipals" : [
-        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+        {"name" : "accumulo_principal", "primary" : "${principal}", "instance" : "${host}"}
       ],
       "externalLink" : {
         "name" : "monitor_web_ui",
@@ -521,6 +534,9 @@
           {
             "filename" : "accumulo-site.xml",
             "configFormat" : "hadoop_xml",
+            "kerberosPrincipals" : [
+              { "principalName" : "accumulo_principal", "propertyName" : "general.kerberos.principal", "instanceWildcard" : "_HOST"}
+            ],
             "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "accumulo_trace_user", "accumulo_trace_password"]
           }
         ]
@@ -555,7 +571,7 @@
         }
       },
       "kerberosPrincipals" : [
-        {"name" : "accumulo_principal", "primary" : "accumulo", "instance" : "${host}"}
+        {"name" : "accumulo_principal", "primary" : "${principal}", "instance" : "${host}"}
       ],
       "logging" : {"dir" : "/var/log/accumulo", "filename" : "tracer-${host}.log", "loggingType" : "log4j", "modifiable" : true},
       "configWriter" : {
@@ -563,6 +579,9 @@
           {
             "filename" : "accumulo-site.xml",
             "configFormat" : "hadoop_xml",
+            "kerberosPrincipals" : [
+              { "principalName" : "accumulo_principal", "propertyName" : "general.kerberos.principal", "instanceWildcard" : "_HOST"}
+            ],
             "includedParams" : ["accumulo_instance_secret", "accumulo_hdfs_dir", "master_port_client", "monitor_port_client", "tserver_port_client", "table_file_replication", "accumulo_trace_user", "accumulo_trace_password"]
           }
         ]
