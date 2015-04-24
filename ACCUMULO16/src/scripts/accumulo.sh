@@ -81,9 +81,6 @@ add_to_accumulo_site general.classpaths $FULL_CLASSPATH
 
 if [ "$accumulo_principal" != "" ]; then
   add_to_accumulo_site general.kerberos.keytab $CONF_DIR/accumulo16.keytab
-  HOSTNAME=`hostname`
-  PRINCIPAL="${accumulo_principal/$HOSTNAME/_HOST}" # Insert host wildcard in principal name
-  add_to_accumulo_site general.kerberos.principal $PRINCIPAL
 fi
 
 if [ -z $ACCUMULO_OTHER_OPTS ]; then
