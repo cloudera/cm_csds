@@ -5,7 +5,7 @@
 
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>5.2.0</version>
+  <version>5.4.0</version>
   <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
