@@ -1,0 +1,270 @@
+// Licensed to Cloudera, Inc. under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  Cloudera, Inc. licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+{
+  "name" : "SPARK_ON_YARN",
+  "label" : "Spark",
+  "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
+  "version" : "5.5.0",
+  "compatibility" : { "cdhVersion" : { "min" : "5", "max" : "5.4" } },
+  "runAs" : {
+    "user" : "spark",
+    "group" : "spark",
+    "principal" : "spark"
+  },
+  "inExpressWizard" : true,
+  "icon" : "images/icon.png",
+  "parcel" : {
+    "requiredTags" : ["spark", "cdh"],
+    "optionalTags" : ["spark-plugin"]
+  },
+  "serviceDependencies" : [
+    {
+      "name" : "YARN",
+      "required" : "true"
+    }
+  ],
+  "commands" : [
+    {
+      "name" : "SparkUploadJarServiceCommand",
+      "label" : "Install Spark JAR",
+      "description" : "Install Spark assembly JAR on HDFS.",
+      "roleName" : "SPARK_YARN_HISTORY_SERVER",
+      "roleCommand" : "SparkUploadJarCommand",
+      "runMode" : "single"
+    }
+  ],
+  "hdfsDirs" : [
+    {
+      "name" : "CreateSparkUserDirCommand",
+      "label" : "Create Spark User Dir",
+      "description" : "Creates the Spark user directory in HDFS.",
+      "directoryDescription" : "Spark HDFS user directory",
+      "path" : "/user/${principal}",
+      "permissions" : "0751"
+    },
+    {
+      "name" : "CreateSparkHistoryDirCommand",
+      "label" : "Create Spark History Log Dir",
+      "description" : "Creates the directory in HDFS where application history will be stored.",
+      "directoryDescription" : "Spark Application History directory",
+      "path" : "${spark_history_log_dir}",
+      "permissions" : "1777"
+    }
+  ],
+  "serviceInit" : {
+    "preStartSteps" : [
+      {
+        "commandName" : "CreateSparkUserDirCommand"
+      },
+      {
+        "commandName" : "CreateSparkHistoryDirCommand"
+      },
+      {
+        "commandName" : "SparkUploadJarServiceCommand"
+      }
+    ]
+  },
+  "parameters" : [
+    {
+      "name" : "spark_jar_hdfs_path",
+      "label" : "Spark JAR Location (HDFS)",
+      "description" : "The location of the Spark JAR in HDFS. If left blank, Cloudera Manager will use the Spark JAR installed on the cluster nodes.",
+      "type" : "path",
+      "pathType" : "serviceSpecific",
+      "default" : ""
+    },
+    {
+      "name" : "spark_history_log_dir",
+      "label" : "Spark History Location (HDFS)",
+      "description" : "The location of Spark application history logs in HDFS. Changing this value will not move existing logs to the new location.",
+      "configName" : "spark.eventLog.dir",
+      "default" : "/user/spark/applicationHistory",
+      "type" : "path",
+      "pathType" : "serviceSpecific",
+      "required" : "true"
+    }
+  ],
+  "rolesWithExternalLinks" : ["SPARK_YARN_HISTORY_SERVER"],
+  "roles" : [
+    {
+      "name" : "SPARK_YARN_HISTORY_SERVER",
+      "label" : "History Server",
+      "pluralLabel" : "History Servers",
+      "startRunner" : {
+        "program" : "scripts/control.sh",
+        "args" : [ "start_history_server" ],
+        "environmentVariables" : {
+          "HISTORY_LOG_DIR" : "${spark_history_log_dir}",
+          "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}",
+          // TODO: move to command line args History Server enhancements are backported.
+          "SPARK_DAEMON_JAVA_OPTS" : "-Dspark.history.ui.port=${history_server_web_port}"
+        }
+      },
+      "kerberosPrincipals" : [
+        {
+          "name" : "SPARK_PRINCIPAL",
+          "primary" : "${principal}",
+          "instance" : "${host}"
+        }
+      ],
+      "commands" : [
+        {
+          "name" : "SparkUploadJarCommand",
+          "label" : "Install Spark JAR",
+          "description" : "Install Spark assembly JAR on HDFS.",
+          "expectedExitCodes" : [0],
+          "requiredRoleState" : "stopped",
+          "commandRunner" : {
+            "program" : "scripts/control.sh",
+            "args" : [ "upload_jar" ],
+            "environmentVariables" : {
+              "SPARK_JAR" : "${spark_jar_hdfs_path}"
+            }
+          }
+        }
+      ],
+      "externalLink" : {
+        "name" : "history_server_web_ui",
+        "label" : "History Server Web UI",
+        "url" : "http://${host}:${history_server_web_port}"
+      },
+      "topology" : { "minInstances" : 1, "maxInstances" : 1 },
+      "logging" : {
+        "dir" : "/var/log/spark",
+        "filename" : "spark-history-server-${host}.log",
+        "modifiable" : true,
+        "loggingType" : "log4j"
+      },
+      "parameters" : [
+        {
+          "name" : "history_server_web_port",
+          "label" : "History Server WebUI Port",
+          "configName" : "history.port",
+          "description" : "The port of the history server WebUI",
+          "required" : "true",
+          "type" : "port",
+          "default" : 18088
+        },
+        {
+          "name" : "history_server_max_heapsize",
+          "label" : "Java Heap Size of History Server in Bytes",
+          "description" : "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in bytes.",
+          "required" : "true",
+          "type" : "memory",
+          "unit" : "bytes",
+          "min" : 67108864,
+          "default" : 268435456
+        }
+      ],
+      "configWriter" : {
+        "auxConfigGenerators" : [
+          {
+            "filename" : "spark-conf/spark-env.sh",
+            "sourceFilename" : "aux/client/spark-env.sh"
+          }
+        ]
+      }
+    }
+  ],
+  "gateway" : {
+    "alternatives" : {
+      "name" : "spark-conf",
+      // The priority is set to be higher than Spark standalone by default
+      "priority" : 51,
+      "linkRoot" : "/etc/spark"
+    },
+    "parameters" : [
+      {
+        "name" : "spark_history_enabled",
+        "label" : "Enable History",
+        "description" : "Write Spark application history logs to HDFS.",
+        "configName" : "spark.eventLog.enabled",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : true
+      },
+      {
+        "name" : "spark_deploy_mode",
+        "label" : "Default Application Deploy Mode",
+        "description" : "Which deploy mode to use by default. Can be overridden by users when launching applications.",
+        "required" : "false",
+        "type" : "string_enum",
+        "validValues" : [ "client", "cluster" ],
+        "default" : "client"
+      },
+      {
+        "name" : "spark_data_serializer",
+        "label" : "Spark Data Serializer",
+        "description" : "Name of class implementing org.apache.spark.serializer.Serializer to use in Spark applications.",
+        "configName" : "spark.serializer",
+        "default" : "org.apache.spark.serializer.KryoSerializer",
+        "type" : "string",
+        "required" : "true"
+      },
+      {
+        "name" : "spark_python_path",
+        "label" : "Extra Python Path",
+        "description" : "Python library paths to add to PySpark applications.",
+        "required" : "false",
+        "type" : "path_array",
+        "pathType" : "serviceSpecific",
+        "separator" : ":",
+        "default" : [ ]
+      }
+    ],
+    "scriptRunner" : {
+      "program" : "scripts/control.sh",
+      "args" : [ "client" ],
+      "environmentVariables" : {
+        "DEPLOY_MODE" : "${spark_deploy_mode}",
+        "SPARK_JAR" : "${spark_jar_hdfs_path}",
+        "PYTHON_PATH" : "${spark_python_path}"
+      }
+    },
+    "configWriter" : {
+      "generators" : [
+        {
+          "filename" : "spark-conf/spark-defaults.conf",
+          "configFormat" : "properties",
+          "includedParams" : [
+            "spark_history_enabled",
+            "spark_history_log_dir",
+            "spark_data_serializer"
+          ]
+        }
+      ],
+      "auxConfigGenerators" : [
+        {
+          "filename" : "spark-conf/spark-env.sh",
+          "sourceFilename" : "aux/client/spark-env.sh"
+        },
+        {
+          "filename" : "spark-conf/log4j.properties",
+          "sourceFilename" : "aux/client/log4j.properties"
+        }
+      ],
+      "peerConfigGenerators" : [
+        {
+          "filename" : "history.properties",
+          "params" : ["history_server_web_port"],
+          "roleName" : "SPARK_YARN_HISTORY_SERVER"
+        }
+      ]
+    }
+  }
+}
+
+
