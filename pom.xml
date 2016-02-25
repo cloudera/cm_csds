@@ -21,11 +21,7 @@
     <module>ISILON</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
-    <module>KEYTRUSTEE_SERVER</module>
     <module>KAFKA</module>
-    <module>HIVE</module>
-    <module>HDFS</module>
-    <module>HUE</module>
   </modules>
 
   <build>
