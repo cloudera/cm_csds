@@ -70,6 +70,11 @@ FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CONF_DIR"
 FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CLIENT_HOME/[^.](?!lf4j-log4j|uava|vro).*-[0-9a.]*.jar"
 FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CLIENT_HOME/slf4j-log4j12.jar"
 FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CLIENT_HOME/avro.jar"
+# Needed for C5.5+ until HTrace has a non-incubating release.
+# on C5.4 will add an unneeded extra jar to the classpath.
+FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CLIENT_HOME/htrace-core.jar"
+# and on later versions with HTrace 4.
+FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CLIENT_HOME/htrace-core4.jar"
 FULL_CLASSPATH="$FULL_CLASSPATH,\$HADOOP_CLIENT_HOME/[^.](?!ookeeper).*-[0-9.]*(?:-[^-]*)?-cdh.*.jar"
 FULL_CLASSPATH="$FULL_CLASSPATH,\$ZOOKEEPER_HOME/zookeeper.*-[0-9].*.jar"
 
@@ -90,11 +95,11 @@ fi
   
 # New for 1.6 - Add extra properties to logging configuration
 if [ "$1" = "monitor" ]; then
-  sed -i '/ConversionPattern/d' $CONF_DIR/log4j.properties
+  sed -i '/log4j\.appender\.RFA\.layout\.ConversionPattern/d' $CONF_DIR/log4j.properties
   cat $CONF_DIR/scripts/monitor_extra_log4j.properties >> $CONF_DIR/log4j.properties
   mv $CONF_DIR/log4j.properties $CONF_DIR/monitor_logger.properties
 elif [ "$1" != "client" ]; then
-  sed -i '/ConversionPattern/d' $CONF_DIR/log4j.properties
+  sed -i '/log4j\.appender\.RFA\.layout\.ConversionPattern/d' $CONF_DIR/log4j.properties
   cat $CONF_DIR/scripts/generic_extra_log4j.properties >> $CONF_DIR/log4j.properties
   mv $CONF_DIR/log4j.properties $CONF_DIR/generic_logger.properties
 fi

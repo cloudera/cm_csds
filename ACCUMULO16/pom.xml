@@ -6,12 +6,12 @@
   <parent>
     <groupId>com.cloudera</groupId>
     <artifactId>csd</artifactId>
-    <version>5.4.0</version>
+    <version>5.5.0</version>
   </parent>
 
   <groupId>com.cloudera.csd</groupId>
   <artifactId>ACCUMULO16</artifactId>
-  <version>5.4.0</version>
+  <version>5.5.0</version>
   <name>The Accumulo 1.6 CSD</name>
   <packaging>pom</packaging>
 
@@ -35,6 +35,15 @@
             </goals>
            </execution>
          </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.cloudera.enterprise</groupId>
+        <artifactId>schema-validator-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>validate-schema</id>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
    </build>
