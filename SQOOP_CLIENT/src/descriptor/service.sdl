@@ -17,7 +17,7 @@
   "name" : "SQOOP_CLIENT",
   "label" : "Sqoop 1 Client",
   "description" : "Configuration and connector management for Sqoop 1.",
-  "version" : "5.4.0",
+  "version" : "5.5.0",
   "compatibility" : { "cdhVersion" : { "min" : "5", "max" : "5" } },
   "runAs" : {
     "user" : "root",
@@ -26,7 +26,7 @@
   "maxInstances" : 1,
   "icon" : "images/sqoop.png",
   "parcel" : {
-    "repoUrl" : "http://archive.cloudera.com/sqoop-connectors/parcels/latest/",
+    "repoUrl" : "https://archive.cloudera.com/sqoop-connectors/parcels/latest/",
     "requiredTags" : [ "cdh" ],
     "optionalTags" : [ "sqoop-plugin" ]
   },
@@ -44,7 +44,7 @@
         "required" : "false",
         "configName" : "sqoop.connection.factories",
         "type" : "string_array",
-        "delimeter" : ",",
+        "separator" : ",",
         "default" : []
       },
       {
@@ -54,7 +54,7 @@
         "required" : "false",
         "configName" : "sqoop.tool.plugins",
         "type" : "string_array",
-        "delimeter" : ",",
+        "separator" : ",",
         "default" : []
       }
     ],
