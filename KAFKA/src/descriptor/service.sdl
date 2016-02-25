@@ -1,0 +1,643 @@
+// Licensed to Cloudera, Inc. under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  Cloudera, Inc. licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+{
+  "name": "KAFKA",
+  "label": "Kafka",
+  "description": "Apache Kafka is publish-subscribe messaging rethought as a distributed commit log. <span class=\"error\">Before adding this service, ensure that either the Kafka parcel is activated or the Kafka package is installed.</span>",
+  "version": "1.4.0",
+  "compatibility": {
+    "generation": 1,
+    "cdhVersion": {
+      "min": "5",
+      "max": "5"
+    }
+  },
+  "runAs": {
+    "user": "kafka",
+    "group": "kafka"
+  },
+  "icon": "images/kafka.png",
+  "parcel": {
+    "repoUrl": "https://archive.cloudera.com/kafka/parcels/latest/",
+    "requiredTags": [
+      "cdh",
+      "kafka"
+    ]
+  },
+  "serviceDependencies": [
+    {
+      "name": "ZOOKEEPER",
+      "required": "true"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "zookeeper.chroot",
+      "label": "ZooKeeper Root",
+      "description": "ZNode in ZooKeeper that should be used as a root for this Kafka cluster.",
+      "type": "string",
+      "default": "",
+      "configurableInWizard": true
+    },
+    {
+      "name": "auto.create.topics.enable",
+      "label": "Topic Auto Creation",
+      "description": "Enables auto creation of topics on the server. If this is set to true, then attempts to produce, consume, or fetch metadata for a non-existent topic automatically create the topic with the default replication factor and number of partitions.",
+      "type": "boolean",
+      "default": "true",
+      "configurableInWizard": true
+    },
+    {
+      "name": "num.partitions",
+      "label": "Default Number of Partitions",
+      "description": "The default number of partitions for automatically created topics.",
+      "type": "long",
+      "default": 1,
+      "min": 1,
+      "max": 2147483647,
+      "softMax": 1000
+    },
+    {
+      "name": "default.replication.factor",
+      "label": "Default Replication Factor",
+      "description": "The default replication factor for automatically created topics.",
+      "type": "long",
+      "default": 1,
+      "min": 1,
+      "max": 2147483647,
+      "softMax": 10,
+      "configurableInWizard": true
+    },
+    {
+      "name": "min.insync.replicas",
+      "label": "Minimum Number of Replicas in ISR",
+      "description": "The minimum number of replicas in the in-sync replica needed to satisfy a produce request where required.acks=-1 (that is, all).",
+      "type": "long",
+      "default": 1,
+      "min": 1,
+      "max": 2147483647,
+      "softMax": 10
+    },
+    {
+      "name": "offsets.topic.num.partitions",
+      "label": "Offset Commit Topic Number of Partitions",
+      "description": "The number of partitions for the offset commit topic. Since changing this after deployment is currently unsupported, we recommend using a higher setting for production (for example, 100-200).",
+      "type": "long",
+      "default": 50,
+      "min": 1,
+      "max": 2147483647,
+      "softMin": 25,
+      "softMax": 1000,
+      "configurableInWizard": true
+    },
+    {
+      "name": "offsets.topic.replication.factor",
+      "label": "Offset Commit Topic Replication Factor",
+      "description": "The replication factor for the offset commit topic. A higher setting is recommended in order to ensure higher availability (for example, 3 or 4) . If the offsets topic is created when there are fewer brokers than the replication factor, then the offsets topic is created with fewer replicas.",
+      "type": "long",
+      "default": 3,
+      "min": 1,
+      "max": 2147483647,
+      "softMin": 2,
+      "softMax": 10,
+      "configurableInWizard": true
+    },
+    {
+      "name": "delete.topic.enable",
+      "label": "Enable Delete Topic",
+      "description": "Enables topic deletion using admin tools. When delete topic is disabled, deleting topics through the admin tools has no effect.",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "controlled.shutdown.enable",
+      "label": "Enable Controlled Shutdown",
+      "description": "Enables controlled shutdown of the broker. If enabled, the broker moves all leaders on it to other brokers before shutting itself down. This reduces the unavailability window during shutdown.",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "controlled.shutdown.max.retries",
+      "label": "Controlled Shutdown Maximum Attempts",
+      "description": "Number of unsuccessful controlled shutdown attempts before executing an unclean shutdown. For example, the default value of 3 means that the system will attempt a controlled shutdown 3 times before executing an unclean shutdown.",
+      "type": "long",
+      "default": 3,
+      "min": 0,
+      "max": 2147483647,
+      "softMax": 10
+    },
+    {
+      "name": "unclean.leader.election.enable",
+      "label": "Enable Unclean Leader Election",
+      "description": "Enable replicas not in the ISR set to be elected as leader as a last resort, even though doing so might result in data loss.",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "name": "auto.leader.rebalance.enable",
+      "label": "Enable Automatic Leader Rebalancing",
+      "description": "If automatic leader rebalancing is enabled, the controller tries to balance leadership for partitions among the brokers by periodically returning leadership for each partition to the preferred replica, if it is available.",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "leader.imbalance.per.broker.percentage",
+      "label": "Leader Imbalance Allowed Per Broker",
+      "description": "The percentage of leader imbalance allowed per broker. The controller rebalances leadership if this ratio goes above the configured value per broker.",
+      "type": "long",
+      "default": 10,
+      "min": 1,
+      "max": 100,
+      "softMin": 5,
+      "softMax": 50,
+      "unit": "percent"
+    },
+    {
+      "name": "leader.imbalance.check.interval.seconds",
+      "label": "Leader Imbalance Check Interval",
+      "description": "The frequency with which to check for leader imbalance.",
+      "type": "long",
+      "default": 300,
+      "min": 1,
+      "max": 2147483647,
+      "softMin": 30,
+      "softMax": 604800,
+      "unit": "seconds"
+    },
+    {
+      "name": "zookeeper.session.timeout.ms",
+      "label": "ZooKeeper Session Timeout",
+      "description": "If the server fails to send a heartbeat to ZooKeeper within this period of time, it is considered dead. If set too low, ZooKeeper might falsely consider a server dead; if set too high, ZooKeeper might take too long to recognize a dead server.",
+      "type": "long",
+      "default": 6000,
+      "min": 1,
+      "max": 2147483647,
+      "softMax": 3600000,
+      "unit": "milliseconds"
+    },
+    {
+      "name": "message.max.bytes",
+      "label": "Maximum Message Size",
+      "description": "The maximum size of a message that the server can receive. It is important that this property be in sync with the maximum fetch size the consumers use, or else an unruly producer could publish messages too large for consumers to consume.",
+      "type": "long",
+      "default": 1000000,
+      "max": 2147483647,
+      "min": 1,
+      "softMin": 1024,
+      "softMax": 10485760,
+      "unit": "bytes"
+    },
+    {
+      "name": "replica.fetch.max.bytes",
+      "label": "Replica Maximum Fetch Size",
+      "description": "The maximum number of bytes to fetch for each partition in fetch requests replicas send to the leader. This value should be larger than message.max.bytes.",
+      "type": "long",
+      "default": 1048576,
+      "min": 1,
+      "max": 2147483647,
+      "softMin": 1024,
+      "softMax": 1073741824,
+      "unit": "bytes"
+    },
+    {
+      "name": "num.replica.fetchers",
+      "label": "Number of Replica Fetchers",
+      "description": "Number of threads used to replicate messages from leaders. Increasing this value increases the degree of I/O parallelism in the follower broker.",
+      "type": "long",
+      "default": 1,
+      "min": 1,
+      "max": 2147483647,
+      "softMax": 100
+    },
+    {
+      "name": "replica.lag.max.messages",
+      "label": "Allowed Replica Message Lag",
+      "description": "If a replica falls more than this number of messages behind the leader, the leader removes the follower from the ISR and treats it as dead. This property is deprecated in Kafka 1.4.0; higher versions use only replica.lag.time.max.ms.",
+      "type": "long",
+      "default": 4000,
+      "min": 1,
+      "max": 2147483647
+    },
+    {
+      "name": "replica.lag.time.max.ms",
+      "label": "Allowed Replica Time Lag",
+      "description": "If a follower has not sent any fetch requests, nor has it consumed up to the leader's log end offset during this time, the leader removes the follower from the ISR set.",
+      "type": "long",
+      "default": 10000,
+      "min": 1,
+      "unit": "milliseconds"
+    },
+    {
+      "name": "log.flush.interval.messages",
+      "label": "Log Flush Message Interval",
+      "description": "The number of messages written to a log partition before triggering an fsync on the log. Setting this lower syncs data to disk more often, but has a major impact on performance. We recommend use of replication for durability rather than depending on single-server fsync; however, this setting can be used to be extra certain. If used in conjunction with log.flush.interval.ms, the log is flushed when either criteria is met.",
+      "type": "long",
+      "min": 1
+    },
+    {
+      "name": "log.flush.interval.ms",
+      "label": "Log Flush Time Interval",
+      "description": "The maximum time between fsync calls on the log. If used in conjuction with log.flush.interval.messages, the log is flushed when either criteria is met.",
+      "type": "long",
+      "min": 1,
+      "unit": "milliseconds"
+    },
+    {
+      "name": "log.flush.scheduler.interval.ms",
+      "label": "Log Flush Scheduler Interval",
+      "description": "The frequency, in ms, with which the log flusher checks whether any log is eligible to be flushed to disk.",
+      "type": "long",
+      "min": 1,
+      "unit": "milliseconds"
+    },
+    {
+      "name": "monitoring.enabled",
+      "label": "Enable Kafka Monitoring (Note: Requires Kafka-1.3.0 parcel or higher)",
+      "description": "Enables Kafka monitoring.",
+      "type": "boolean",
+      "default": true,
+      "configurableInWizard": true
+    },
+    {
+      "name": "kafka.metrics.reporters",
+      "label": "List of Metric Reporters",
+      "description": "List of metric reporter class names. HTTP reporter is included by default.",
+      "type": "string_array",
+      "default": [
+        "nl.techop.kafka.KafkaHttpMetricsReporter"
+      ],
+      "minLength": 1
+    }
+  ],
+  "roles": [
+    {
+      "name": "KAFKA_BROKER",
+      "label": "Kafka Broker",
+      "pluralLabel": "Kafka Brokers",
+      "uniqueIdParameters": [
+        "broker.id"
+      ],
+      "startRunner": {
+        "program": "scripts/control.sh",
+        "args": [
+          "start"
+        ],
+        "environmentVariables": {
+          "CHROOT": "${zookeeper.chroot}",
+          "JMX_PORT": "${jmx_port}",
+          "ENABLE_MONITORING": "${monitoring.enabled}",
+          "METRIC_REPORTERS": "${kafka.metrics.reporters}",
+          "BROKER_HEAP_SIZE": "${broker_max_heap_size}",
+          "BROKER_JAVA_OPTS": "${broker_java_opts}"
+        }
+      },
+      "logging": {
+        "dir": "/var/log/kafka",
+        "filename": "server.log",
+        "modifiable": true,
+        "configName": "kafka.log4j.dir",
+        "loggingType": "log4j"
+      },
+      "configWriter": {
+        "generators": [
+          {
+            "filename": "kafka.properties",
+            "configFormat": "properties",
+            "excludedParams": [
+              "monitoring.enabled",
+              "kafka.metrics.reporters",
+              "zookeeper.chroot",
+              "broker_max_heap_size",
+              "broker_java_opts"
+            ]
+          },
+          {
+            "filename": "kafka-monitoring.properties",
+            "configFormat": "properties",
+            "includedParams": [
+              "monitoring.enabled",
+              "kafka.http.metrics.host",
+              "kafka.http.metrics.port",
+              "broker.id"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "broker.id",
+          "label": "Broker ID",
+          "description": "ID uniquely identifying each broker. Never set this property at the group level; it should always be overridden on instance level.",
+          "type": "string"
+        },
+        {
+          "name": "advertised.host.name",
+          "label": "Advertised Host",
+          "description": "If set, this is the hostname given out to producers, consumers, and other brokers to use in establishing connections. Never set this property at the group level; it should always be overriden on instance level.",
+          "type": "string"
+        },
+        {
+          "name": "advertised.port",
+          "label": "Advertised Port",
+          "description": "The port to give out to producers, consumers, and other brokers to use in establishing connections. This only needs to be set if this port is different from the port the server should bind to.",
+          "type": "port"
+        },
+        {
+          "name": "port",
+          "label": "TCP Port",
+          "description": "Kafka broker port.",
+          "type": "port",
+          "default": 9092,
+          "configurableInWizard": true
+        },
+        {
+          "name": "jmx_port",
+          "label": "JMX Port",
+          "description": "Port for JMX.",
+          "type": "port",
+          "default": 9393
+        },
+        {
+          "name": "log.dirs",
+          "label": "Data Directories",
+          "description": "A list of one or more directories in which Kafka data is stored. Each new partition created is placed in the directory that currently has the fewest partitions. Each directory should be on its own separate drive.",
+          "type": "path_array",
+          "default": [
+            "/var/local/kafka/data"
+          ],
+          "pathType": "localDataDir",
+          "required": "true",
+          "minLength": 1,
+          "configurableInWizard": true
+        },
+        {
+          "name": "log.segment.bytes",
+          "label": "Segment File Size",
+          "description": "The log for a topic partition is stored as a directory of segment files. This setting controls the size to which a segment file can grow before a new segment is rolled over in the log. This value should be larger than message.max.bytes.",
+          "type": "long",
+          "default": 1073741824,
+          "min": 14,
+          "max": 2147483647,
+          "softMin": 1024,
+          "unit": "bytes"
+        },
+        {
+          "name": "log.retention.hours",
+          "label": "Data Retention Hours",
+          "description": "The maximum time before a new log segment is rolled out (in hours). Secondary to the log.retention.ms property. The special value of -1 is interpreted as unlimited. This property is deprecated in Kafka 1.4.0. Use log.retention.ms.",
+          "type": "long",
+          "default": 168,
+          "min": -1,
+          "max": 2147483647,
+          "unit": "hours"
+        },
+        {
+          "name": "log.retention.ms",
+          "label": "Data Retention Time",
+          "description": "The maximum time before a new log segment is rolled out. If both log.retention.ms and log.retention.bytes are set, a segment is deleted when either limit is exceeded. The special value of -1 is interpreted as unlimited. This property is used in Kafka 1.4.0 and later in place of log.retention.hours.",
+          "type": "long",
+          "min": -1,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "log.retention.bytes",
+          "label": "Data Retention Size",
+          "description": "The amount of data to retain in the log for each topic-partition. This is the limit per partition: multiply by the number of partitions to get the total data retained for the topic. The special value of -1 is interpreted as unlimited. If both log.retention.ms and log.retention.bytes are set, a segment is deleted when either limit is exceeded.",
+          "type": "long",
+          "default": -1,
+          "min": -1,
+          "unit": "bytes"
+        },
+        {
+          "name": "log.retention.check.interval.ms",
+          "label": "Data Retention Check Interval",
+          "description": "The frequency, in milliseconds, that the log cleaner checks whether any log segment is eligible for deletion, per retention policies.",
+          "type": "long",
+          "default": 300000,
+          "min": 1,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "log.roll.hours",
+          "label": "Data Log Roll Hours",
+          "description": "The maximum time before a new log segment is rolled out (in hours). This property is deprecated in Cloudera Kafka 1.4.0; use log.roll.ms.",
+          "type": "long",
+          "default": 168,
+          "min": 1,
+          "max": 2147483647,
+          "unit": "hours"
+        },
+        {
+          "name": "log.roll.ms",
+          "label": "Data Log Roll Time",
+          "description": "The maximum time before a new log segment is rolled out. This property is used in Cloudera Kafka 1.4.0 and later in place of log.roll.hours.",
+          "type": "long",
+          "min": 1,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "num.io.threads",
+          "label": "Number of I/O Threads",
+          "description": "The number of I/O threads that the server uses for executing requests. You should have at least as many threads as you have disks.",
+          "type": "long",
+          "default": 8,
+          "min": 1,
+          "max": 2147483647,
+          "softMax": 100
+        },
+        {
+          "name": "max.connections.per.ip",
+          "label": "Maximum Connections per IP Address",
+          "description": "Maximum number of connections allowed from each IP address.",
+          "type": "long",
+          "min": 1,
+          "max": 2147483647
+        },
+        {
+          "name": "kafka.http.metrics.host",
+          "label": "HTTP Metric Report Host",
+          "description": "Host the HTTP metric reporter binds to.",
+          "type": "string",
+          "default": "0.0.0.0"
+        },
+        {
+          "name": "kafka.http.metrics.port",
+          "label": "HTTP Metric Report Port",
+          "description": "Port the HTTP metric reporter listens on.",
+          "type": "port",
+          "default": 24042
+        },
+        {
+          "name": "broker_max_heap_size",
+          "label": "Java Heap Size of Broker",
+          "description": "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in megabytes. Kafka does not generally require setting large heap sizes. It is better to let the file system cache utilize the available memory.",
+          "type": "memory",
+          "default": 1024,
+          "min": 50,
+          "softMin": 256,
+          "softMax": 16384,
+          "unit": "megabytes",
+          "scaleFactor" : 1.3
+        },
+        {
+          "name": "broker_java_opts",
+          "label": "Additional Broker Java Options",
+          "description": "These arguments are passed as part of the Java command line. Commonly, garbage collection flags or extra debugging flags are passed here.",
+          "type": "string",
+          "default": "-server -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSScavengeBeforeRemark -XX:+DisableExplicitGC -Djava.awt.headless=true"
+        }
+      ]
+    },
+    {
+      "name": "KAFKA_MIRROR_MAKER",
+      "label": "Kafka MirrorMaker",
+      "pluralLabel": "Kafka MirrorMakers",
+      "startRunner": {
+        "program": "scripts/mirrormaker_control.sh",
+        "args": [
+          "start"
+        ],
+        "environmentVariables": {
+          "NO_DATA_LOSS": "${no.data.loss}",
+          "WHITELIST": "${whitelist}",
+          "BLACKLIST": "${blacklist}",
+          "NUM_PRODUCERS": "${num.producers}",
+          "NUM_STREAMS": "${num.streams}",
+          "QUEUE_SIZE": "${queue.size}",
+          "QUEUE_BYTE_SIZE": "${queue.byte.size}",
+          "JMX_PORT": "${jmx_port}"
+        }
+      },
+      "logging": {
+        "dir": "/var/log/kafka",
+        "filename": "mirrormaker.log",
+        "modifiable": true,
+        "configName": "kafka_mirrormaker.log4j.dir",
+        "loggingType": "log4j"
+      },
+      "topology": {
+        "minInstances": "0"
+      },
+      "configWriter": {
+        "generators": [
+          {
+            "filename": "mirror_maker_producers.properties",
+            "configFormat": "properties",
+            "includedParams": [
+              "bootstrap.servers"
+            ]
+          },
+          {
+            "filename": "mirror_maker_consumers.properties",
+            "configFormat": "properties",
+            "includedParams": [
+              "group.id"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "group.id",
+          "label": "Consumer Group ID",
+          "description": "Name of the consumer group used by MirrorMaker. When multiple role instances are configured with the same topics and same group ID, the role instances load-balance replication for the topics. When multiple role instances are configured with the same topics but different group ID, each role instance replicates all the events for those topics - this can be used to replicate the source cluster into multiple destination clusters.",
+          "type": "string",
+          "default": "cloudera_mirrormaker"
+        },
+        {
+          "name": "bootstrap.servers",
+          "label": "Destination Broker List",
+          "description": "List of brokers on destination cluster. This should be more than one, for high availability, but there's no need to list all brokers.",
+          "type": "string"
+        },
+        {
+          "name": "no.data.loss",
+          "label": "Avoid Data Loss",
+          "description": "Run with MirrorMaker settings that eliminate potential loss of data. This impacts performance, but is highly recommended.",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "name": "whitelist",
+          "label": "Topic Whitelist",
+          "description": "Regular expression that represents a set of topics to mirror. Note that whitelist and blacklist parameters are mutually exclusive. If both are defined, only the whilelist is used.",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "blacklist",
+          "label": "Topic Blacklist",
+          "description": "Regular expression that represents a set of topics to avoid mirroring. Note that whitelist and blacklist parameters are mutually exclusive. If both are defined, only the whilelist is used.",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "num.producers",
+          "label": "Number of Producers",
+          "description": "Number of producer instances.",
+          "type": "long",
+          "default": 1,
+          "min": 1
+        },
+        {
+          "name": "num.streams",
+          "label": "Number of Consumer Threads",
+          "description": "Number of consumer threads.",
+          "type": "long",
+          "default": 1,
+          "min": 1
+        },
+        {
+          "name": "queue.size",
+          "label": "Message Queue Size",
+          "description": "Number of messages that are buffered between producer and consumer.",
+          "type": "long",
+          "default": 10000,
+          "min": 1
+        },
+        {
+          "name": "queue.byte.size",
+          "label": "Queue Size",
+          "description": "Maximum number of bytes that can be buffered between producer and consumer.",
+          "type": "long",
+          "default": 100000000,
+          "unit": "bytes"
+        },
+        {
+          "name": "jmx_port",
+          "label": "JMX Port",
+          "description": "Port for JMX.",
+          "type": "port",
+          "default": 9394
+        }
+      ]
+    }
+  ],
+  "rollingRestart": {
+    "nonWorkerSteps": [
+      {
+        "roleName": "KAFKA_BROKER",
+        "bringUpCommands": [ "Start" ],
+        "bringDownCommands": [ "Stop" ]
+      },
+      {
+        "roleName": "KAFKA_MIRROR_MAKER",
+        "bringUpCommands": [ "Start" ],
+        "bringDownCommands": [ "Stop" ]
+      }
+    ]
+  }
+}

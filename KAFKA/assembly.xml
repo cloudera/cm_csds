@@ -1,0 +1,23 @@
+<assembly>
+    <id>assemble</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>${project.basedir}/src</directory>
+            <outputDirectory>/</outputDirectory>
+            <excludes>
+                <exclude>main/**</exclude>
+            </excludes>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/target/classes</directory>
+            <outputDirectory>/descriptor/</outputDirectory>
+            <includes>
+                <include>service.mdl</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>

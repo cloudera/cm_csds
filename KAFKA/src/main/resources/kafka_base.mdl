@@ -1,0 +1,93 @@
+{
+  "name" : "KAFKA",
+  "version" : "1.4.0",
+  "metricDefinitions" : [],
+  "nameForCrossEntityAggregateMetrics" : "kafkas",
+  "roles" : [
+    {
+      "name" : "KAFKA_BROKER",
+      "nameForCrossEntityAggregateMetrics" : "kafka_brokers",
+      "metricDefinitions" : []
+    }
+  ],
+  "metricEntityAttributeDefinitions" : [
+       {
+         "name" : "kafkaTopicName",
+         "label" : "Topic Name",
+         "description" : "Name for Kafka Topic.",
+         "valueCaseSensitive": true
+       },
+       {
+         "name" : "kafkaInternalTopic",
+         "label" : "Is Internal Topic",
+         "description" : "Topic is an internal Kafka topic.",
+         "valueCaseSensitive": false
+       },
+       {
+         "name" : "kafkaPartitionId",
+         "label" : "Partition Id",
+         "description" : "Id of a Kafka topic partition.",
+         "valueCaseSensitive": false
+       }
+     ],
+  "metricEntityTypeDefinitions" : [
+      {
+        "name" : "KAFKA_TOPIC",
+        "nameForCrossEntityAggregateMetrics" : "kafka_topics",
+        "entityNameFormat" :  [
+           "serviceName",
+           "kafkaTopicName"
+        ],
+        "label" : "Kafka Topic",
+        "labelPlural" : "Kafka Topics",
+        "description" : "A Kafka topic.",
+        "immutableAttributeNames" : [
+           "kafkaTopicName",
+           "kafkaInternalTopic",
+           "serviceName"
+        ]
+      },
+      {
+        "name" : "KAFKA_BROKER_TOPIC",
+        "nameForCrossEntityAggregateMetrics" : "kafka_broker_topics",
+        "entityNameFormat" :  [
+           "roleName",
+           "kafkaTopicName"
+        ],
+        "label" : "Kafka Broker Topic",
+        "labelPlural" : "Kafka Broker Topics",
+        "description" : "Broker view of a specific topic.",
+        "immutableAttributeNames" : [
+           "kafkaTopicName",
+           "roleName",
+           "serviceName"
+        ],
+        "parentMetricEntityTypeNames" : [
+            "KAFKA_TOPIC",
+            "KAFKA-KAFKA_BROKER"
+        ]
+      },
+      {
+        "name" : "KAFKA_REPLICA",
+        "nameForCrossEntityAggregateMetrics" : "kafka_replicas",
+        "entityNameFormat" :  [
+           "roleName",
+           "kafkaTopicName",
+           "kafkaPartitionId"
+        ],
+        "label" : "Kafka Replica",
+        "labelPlural" : "Kafka Replicas",
+        "description" : "A replica for a given partition of a Kafka topic.",
+        "immutableAttributeNames" : [
+           "kafkaPartitionId",
+           "kafkaTopicName",
+           "roleName",
+           "serviceName"
+        ],
+        "parentMetricEntityTypeNames" : [
+            "KAFKA_BROKER_TOPIC",
+            "KAFKA-KAFKA_BROKER"
+        ]
+      }
+    ]
+}
