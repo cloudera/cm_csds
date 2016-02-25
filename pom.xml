@@ -5,7 +5,7 @@
 
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>5.4.0</version>
+  <version>5.5.0</version>
   <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
@@ -15,10 +15,17 @@
     <module>ACCUMULO16</module>
     <module>SPARK</module>
     <module>SPARK_ON_YARN</module>
+    <module>SPARK_ON_YARN54</module>
+    <module>SPARK_ON_YARN53</module>
     <module>SQOOP_CLIENT</module>
     <module>ISILON</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
+    <module>KEYTRUSTEE_SERVER</module>
+    <module>KAFKA</module>
+    <module>HIVE</module>
+    <module>HDFS</module>
+    <module>HUE</module>
   </modules>
 
   <build>
@@ -34,8 +41,32 @@
         </configuration>
         </plugin>
     </plugins>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <!-- Configure validator globally. This execution looks for SDL and
+               MDL files in the src directory. -->
+          <groupId>com.cloudera.enterprise</groupId>
+          <artifactId>schema-validator-maven-plugin</artifactId>
+          <version>${project.version}</version>
+          <executions>
+            <execution>
+              <id>validate-schema</id>
+              <phase>test</phase>
+              <goals>
+                <goal>validate</goal>
+              </goals>
+              <configuration>
+                <sourceDirectory>src</sourceDirectory>
+                <strictMode>true</strictMode>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
   </build>
-  
+
  <distributionManagement>
    <repository>
       <id>cdh.releases.repo</id>
@@ -49,4 +80,27 @@
     </snapshotRepository>
  </distributionManagement>
 
+    <pluginRepositories>
+        <pluginRepository>
+            <id>cloudera-snapshot-internal</id>
+            <url>http://maven.jenkins.cloudera.com:8081/artifactory/libs-snapshot-local</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </pluginRepository>
+        <pluginRepository>
+            <id>cloudera-release-internal</id>
+            <url>http://maven.jenkins.cloudera.com:8081/artifactory/libs-release-local</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+        <pluginRepository>
+            <id>cloudera-staging</id>
+            <url>https://repository.cloudera.com/artifactory/libs-staging-local</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
 </project>
