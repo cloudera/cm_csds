@@ -1,0 +1,434 @@
+// Licensed to Cloudera, Inc. under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  Cloudera, Inc. licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+{
+  "name" : "SPARK_ON_YARN",
+  "label" : "Spark",
+  "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
+  "version" : "5.5.0",
+  "compatibility" : { "cdhVersion" : { "min" : "5.4.0", "max" : "5.5" } },
+  "runAs" : {
+    "user" : "spark",
+    "group" : "spark",
+    "principal" : "spark"
+  },
+  "inExpressWizard" : true,
+  "icon" : "images/icon.png",
+  "parcel" : {
+    "requiredTags" : ["spark", "cdh"],
+    "optionalTags" : ["spark-plugin"]
+  },
+  "serviceDependencies" : [
+    {
+      "name" : "YARN",
+      "required" : "true"
+    }
+  ],
+  "dependencyExtensions" : [
+    {
+     "extensionId" : "yarnAuxService",
+     "name" : "spark_shuffle",
+     "className" : "org.apache.spark.network.yarn.YarnShuffleService",
+     "type" : "classAndConfigs",
+     "configs" : [
+       {
+         "key" : "spark.shuffle.service.port",
+         "value" : "${spark_shuffle_service_port}"
+       },
+       {
+         "key" : "spark.authenticate",
+         "value" : "${spark_authenticate}"
+       }
+     ]
+    }
+  ],
+  "commands" : [
+    {
+      "name" : "SparkUploadJarServiceCommand",
+      "label" : "Install Spark JAR",
+      "description" : "Install Spark assembly JAR on HDFS.",
+      "roleName" : "SPARK_YARN_HISTORY_SERVER",
+      "roleCommand" : "SparkUploadJarCommand",
+      "runMode" : "single"
+    }
+  ],
+  "hdfsDirs" : [
+    {
+      "name" : "CreateSparkUserDirCommand",
+      "label" : "Create Spark User Dir",
+      "description" : "Creates the Spark user directory in HDFS.",
+      "directoryDescription" : "Spark HDFS user directory",
+      "path" : "/user/${principal}",
+      "permissions" : "0751"
+    },
+    {
+      "name" : "CreateSparkHistoryDirCommand",
+      "label" : "Create Spark History Log Dir",
+      "description" : "Creates the directory in HDFS where application history will be stored.",
+      "directoryDescription" : "Spark Application History directory",
+      "path" : "${spark_history_log_dir}",
+      "permissions" : "1777"
+    }
+  ],
+  "serviceInit" : {
+    "preStartSteps" : [
+      {
+        "commandName" : "CreateSparkUserDirCommand"
+      },
+      {
+        "commandName" : "CreateSparkHistoryDirCommand"
+      },
+      {
+        "commandName" : "SparkUploadJarServiceCommand"
+      }
+    ]
+  },
+  "parameters" : [
+    {
+      "name" : "spark_jar_hdfs_path",
+      "label" : "Spark JAR Location (HDFS)",
+      "description" : "The location of the Spark JAR in HDFS. If left blank, Cloudera Manager will use the Spark JAR installed on the cluster nodes.",
+      "type" : "path",
+      "pathType" : "serviceSpecific",
+      "default" : ""
+    },
+    {
+      "name" : "spark_history_log_dir",
+      "label" : "Spark History Location (HDFS)",
+      "description" : "The location of Spark application history logs in HDFS. Changing this value will not move existing logs to the new location.",
+      "configName" : "spark.eventLog.dir",
+      "default" : "/user/spark/applicationHistory",
+      "type" : "path",
+      "pathType" : "serviceSpecific",
+      "required" : "true"
+    },
+    {
+      "name" : "spark_shuffle_service_port",
+      "label" : "Spark Shuffle Service Port",
+      "description" : "The port the Spark Shuffle Service listens for fetch requests.",
+      "configName" : "spark.shuffle.service.port",
+      "default" : 7337,
+      "type" : "port",
+      "required" : "true"
+    },
+    {
+      "name" : "spark_authenticate",
+      "label" : "Spark Authentication",
+      "description" : "Enable whether the Spark communication protocols do authentication using a shared secret.",
+      "configName" : "spark.authenticate",
+      "required" : "true",
+      "type" : "boolean",
+      "default" : false
+    }
+  ],
+  "rolesWithExternalLinks" : ["SPARK_YARN_HISTORY_SERVER"],
+  "roles" : [
+    {
+      "name" : "SPARK_YARN_HISTORY_SERVER",
+      "label" : "History Server",
+      "pluralLabel" : "History Servers",
+      "startRunner" : {
+        "program" : "scripts/control.sh",
+        "args" : [ "start_history_server" ],
+        "environmentVariables" : {
+          "HISTORY_LOG_DIR" : "${spark_history_log_dir}",
+          "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}"
+        }
+      },
+      "kerberosPrincipals" : [
+        {
+          "name" : "SPARK_PRINCIPAL",
+          "primary" : "${principal}",
+          "instance" : "${host}"
+        }
+      ],
+      "commands" : [
+        {
+          "name" : "SparkUploadJarCommand",
+          "label" : "Install Spark JAR",
+          "description" : "Install Spark assembly JAR on HDFS.",
+          "expectedExitCodes" : [0],
+          "requiredRoleState" : "stopped",
+          "commandRunner" : {
+            "program" : "scripts/control.sh",
+            "args" : [ "upload_jar" ],
+            "environmentVariables" : {
+              "SPARK_JAR" : "${spark_jar_hdfs_path}"
+            }
+          }
+        }
+      ],
+      "externalLink" : {
+        "name" : "history_server_web_ui",
+        "label" : "History Server Web UI",
+        "url" : "http://${host}:${history_server_web_port}"
+      },
+      "topology" : { "minInstances" : 1, "maxInstances" : 1 },
+      "logging" : {
+        "dir" : "/var/log/spark",
+        "filename" : "spark-history-server-${host}.log",
+        "modifiable" : true,
+        "loggingType" : "log4j"
+      },
+      "parameters" : [
+        {
+          "name" : "history_server_web_port",
+          "label" : "History Server WebUI Port",
+          "configName" : "spark.history.ui.port",
+          "description" : "The port of the history server WebUI",
+          "required" : "true",
+          "type" : "port",
+          "default" : 18088
+        },
+        {
+          "name" : "history_server_retained_apps",
+          "label" : "Retained App Count",
+          "configName" : "spark.history.retainedApplications",
+          "description" : "Max number of application UIs to keep in the History Server's memory. All applications will still be available, but may take longer to load if they're not in memory.",
+          "required" : "false",
+          "type" : "long",
+          "min" : 1,
+          "default" : 50
+        },
+        {
+          "name" : "history_server_fs_poll_interval",
+          "label" : "HDFS Polling Interval",
+          "configName" : "spark.history.fs.update.interval.seconds",
+          "description" : "How often to poll HDFS for new applications.",
+          "required" : "false",
+          "type" : "long",
+          "unit" : "seconds",
+          "default" : 10
+        },
+        {
+          "name" : "history_server_max_heapsize",
+          "label" : "Java Heap Size of History Server in Bytes",
+          "description" : "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in bytes.",
+          "required" : "true",
+          "type" : "memory",
+          "unit" : "bytes",
+          "min" : 67108864,
+          "default" : 268435456
+        }
+      ],
+      "configWriter" : {
+        "generators" : [
+          {
+            "filename" : "spark-history-server.conf",
+            "configFormat" : "properties",
+            "includedParams" : [
+              "history_server_web_port",
+              "history_server_retained_apps",
+              "history_server_fs_poll_interval"
+            ]
+          }
+        ],
+        "auxConfigGenerators" : [
+          {
+            "filename" : "spark-conf/spark-env.sh",
+            "sourceFilename" : "aux/client/spark-env.sh"
+          }
+        ]
+      }
+    }
+  ],
+  "gateway" : {
+    "alternatives" : {
+      "name" : "spark-conf",
+      // The priority is set to be higher than Spark standalone by default
+      "priority" : 51,
+      "linkRoot" : "/etc/spark"
+    },
+    "parameters" : [
+      {
+        "name" : "spark_history_enabled",
+        "label" : "Enable History",
+        "description" : "Write Spark application history logs to HDFS.",
+        "configName" : "spark.eventLog.enabled",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : true
+      },
+      {
+        "name" : "spark_deploy_mode",
+         "label" : "Default Application Deploy Mode",
+         "description" : "Which deploy mode to use by default. Can be overridden by users when launching applications.",
+        "required" : "false",
+        "type" : "string_enum",
+        "validValues" : [ "client", "cluster" ],
+        "default" : "client"
+      },
+      {
+        "name" : "spark_data_serializer",
+        "label" : "Spark Data Serializer",
+        "description" : "Name of class implementing org.apache.spark.serializer.Serializer to use in Spark applications.",
+        "configName" : "spark.serializer",
+        "default" : "org.apache.spark.serializer.KryoSerializer",
+        "type" : "string",
+        "required" : "true"
+      },
+      {
+        "name" : "spark_shuffle_service_enabled",
+        "label" : "Enable Shuffle Service",
+        "description" : "Enable Usage of External Shuffle Service.  The External Shuffle Service is not robust to NodeManager restarts and so is not recommended for production use.",
+        "configName" : "spark.shuffle.service.enabled",
+        "required" : "true",
+        "type" : "boolean",
+        "default" : false
+      },
+      {
+        "name" : "spark_python_path",
+        "label" : "Extra Python Path",
+        "description" : "Python library paths to add to PySpark applications.",
+        "required" : "false",
+        "type" : "path_array",
+        "pathType" : "serviceSpecific",
+        "separator" : ":",
+        "default" : [ ]
+      },
+      {
+        "name" : "spark_dynamic_allocation_enabled",
+        "label" : "Enable Dynamic Allocation",
+        "description" : "Enable dynamic allocation of executors in Spark applications.",
+        "configName" : "spark.dynamicAllocation.enabled",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : false
+      },
+      {
+        "name" : "spark_dynamic_allocation_initial_executors",
+        "label" : "Initial Executor Count",
+        "description" : "When dynamic allocation is enabled, number of executors to allocate when the application starts. By default, this is the same value as the minimum number of executors.",
+        "configName" : "spark.dynamicAllocation.initialExecutors",
+        "required" : "false",
+        "type" : "long",
+        "min" : 0
+      },
+      {
+        "name" : "spark_dynamic_allocation_min_executors",
+        "label" : "Minimum Executor Count",
+        "description" : "When dynamic allocation is enabled, minimum number of executors to keep alive while the application is running.",
+        "configName" : "spark.dynamicAllocation.minExecutors",
+        "required" : "false",
+        "type" : "long",
+        "min" : 0,
+        "default" : 0
+      },
+      {
+        "name" : "spark_dynamic_allocation_max_executors",
+        "label" : "Maximum Executor Count",
+        "description" : "When dynamic allocation is enabled, maximum number of executors to allocate. By default, Spark relies on YARN to control the maximum number of executors for the application.",
+        "configName" : "spark.dynamicAllocation.maxExecutors",
+        "required" : "false",
+        "type" : "long",
+        "min" : 1
+      },
+      {
+        "name" : "spark_dynamic_allocation_idle_timeout",
+        "label" : "Executor Idle Timeout",
+        "description" : "When dynamic allocation is enabled, time after which idle executors will be stopped.",
+        "configName" : "spark.dynamicAllocation.executorIdleTimeout",
+        "required" : "false",
+        "type" : "long",
+        "unit" : "seconds",
+        "min" : 0,
+        "default" : 60
+      },
+      {
+        "name" : "spark_dynamic_allocation_cached_idle_timeout",
+        "label" : "Caching Executor Idle Timeout",
+        "description" : "When dynamic allocation is enabled, time after which idle executors with cached RDDs blocks will be stopped. By default, they're never stopped. This configuration is only available starting in CDH 5.5.",
+        "configName" : "spark.dynamicAllocation.cachedExecutorIdleTimeout",
+        "required" : "false",
+        "type" : "long",
+        "unit" : "seconds",
+        "min" : 0
+      },
+      {
+        "name" : "spark_dynamic_allocation_scheduler_backlog_timeout",
+        "label" : "Scheduler Backlog Timeout",
+        "description" : "When dynamic allocation is enabled, timeout before requesting new executors when there are backlogged tasks.",
+        "configName" : "spark.dynamicAllocation.schedulerBacklogTimeout",
+        "required" : "false",
+        "type" : "long",
+        "unit" : "seconds",
+        "min" : 0,
+        "default" : 1
+      },
+      {
+        "name" : "spark_dynamic_allocation_sustained_scheduler_backlog_timeout",
+        "label" : "Sustained Scheduler Backlog Timeout",
+        "description" : "When dynamic allocation is enabled, timeout before requesting new executors after the initial backlog timeout has already expired. By default this is the same value as the initial backlog timeout.",
+        "configName" : "spark.dynamicAllocation.sustainedSchedulerBacklogTimeout",
+        "required" : "false",
+        "type" : "long",
+        "unit" : "seconds",
+        "min" : 0
+      }
+    ],
+    "scriptRunner" : {
+      "program" : "scripts/control.sh",
+      "args" : [ "client" ],
+      "environmentVariables" : {
+        "DEPLOY_MODE" : "${spark_deploy_mode}",
+        "SPARK_JAR" : "${spark_jar_hdfs_path}",
+        "PYTHON_PATH" : "${spark_python_path}"
+      }
+    },
+    "configWriter" : {
+      "generators" : [
+        {
+          "filename" : "spark-conf/spark-defaults.conf",
+          "configFormat" : "properties",
+          "includedParams" : [
+            "spark_authenticate",
+            "spark_history_enabled",
+            "spark_history_log_dir",
+            "spark_data_serializer",
+            "spark_shuffle_service_enabled",
+            "spark_shuffle_service_port",
+            "spark_dynamic_allocation_enabled",
+            "spark_dynamic_allocation_initial_executors",
+            "spark_dynamic_allocation_min_executors",
+            "spark_dynamic_allocation_max_executors",
+            "spark_dynamic_allocation_idle_timeout",
+            "spark_dynamic_allocation_cached_idle_timeout",
+            "spark_dynamic_allocation_scheduler_backlog_timeout",
+            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout"
+          ]
+        }
+      ],
+      "auxConfigGenerators" : [
+        {
+          "filename" : "spark-conf/spark-env.sh",
+          "sourceFilename" : "aux/client/spark-env.sh"
+        },
+        {
+          "filename" : "spark-conf/log4j.properties",
+          "sourceFilename" : "aux/client/log4j.properties"
+        }
+      ],
+      "peerConfigGenerators" : [
+        {
+          "filename" : "history.properties",
+          "params" : ["history_server_web_port"],
+          "roleName" : "SPARK_YARN_HISTORY_SERVER"
+        }
+      ]
+    }
+  }
+}
+
+
