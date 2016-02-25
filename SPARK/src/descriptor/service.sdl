@@ -17,7 +17,7 @@
   "name" : "SPARK",
   "label" : "Spark (Standalone)",
   "description" : "Apache Spark is an open source cluster computing system. This is the standalone version of the service which does not use YARN for resource management. Cloudera recommends using Spark on YARN instead of this standalone version.",
-  "version" : "5.4.0",
+  "version" : "5.5.0",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
@@ -27,7 +27,7 @@
   "icon" : "images/icon.png",
   "parcel" : {
     /* Automatically add the spark parcel repository */
-    "repoUrl" : "http://archive.cloudera.com/spark/parcels/latest/",
+    "repoUrl" : "https://archive.cloudera.com/spark/parcels/latest/",
     "requiredTags" : ["spark", "cdh"],
     "optionalTags" : ["spark-plugin"]
   },
@@ -90,9 +90,10 @@
     {
       "name" : "spark_jar_hdfs_path",
       "label" : "Spark Jar Location (HDFS)",
-      "description" : "The location of the Spark jar in HDFS",
-      "default" : "/user/spark/share/lib/spark-assembly.jar",
-      "type" : "string"
+      "description" : "The location of the Spark jar in HDFS. This configuration is for backwards compatibility and is not used by the Spark Standalone service.",
+      "type" : "path",
+      "pathType" : "serviceSpecific",
+      "default" : ""
     },
     {
       "name" : "spark_history_log_dir",
@@ -111,16 +112,14 @@
       "pluralLabel" : "Masters",
       "startRunner" : {
         "program" : "scripts/control.sh",
-        "args" : [
-           "start_master",
-           "./master.properties"
-        ],
+        "args" : [ "start_master" ],
         "environmentVariables" : {
-           "SPARK_DAEMON_MEMORY" : "${master_max_heapsize}",
-           "SPARK_IDENT_STRING" : "${user}",
-           "SPARK_MASTER_PORT" : "${master_port}",
-           "SPARK_MASTER_WEBUI_PORT" : "${master_webui_port}",
-           "ADDITIONAL_ARGS" : "${master_additional_args}"
+          "MASTER_FILE" : "master.properties",
+          "SPARK_DAEMON_MEMORY" : "${master_max_heapsize}",
+          "SPARK_IDENT_STRING" : "${user}",
+          "SPARK_MASTER_PORT" : "${master_port}",
+          "SPARK_MASTER_WEBUI_PORT" : "${master_webui_port}",
+          "ADDITIONAL_ARGS" : "${master_additional_args}"
         }
       },
       "commands" : [
@@ -132,9 +131,9 @@
           "requiredRoleState" : "stopped",
           "commandRunner" : {
             "program" : "scripts/control.sh",
-            "args" : ["upload_jar"],
+            "args" : [ "upload_jar" ],
             "environmentVariables" : {
-              "SPARK_JAR_HDFS_PATH" : "${spark_jar_hdfs_path}"
+              "SPARK_JAR" : "${spark_jar_hdfs_path}"
             }
           }
         }
@@ -211,7 +210,7 @@
         ],
         "auxConfigGenerators" : [
           {
-            "filename" : "config/spark-env.sh",
+            "filename" : "spark-conf/spark-env.sh",
             "sourceFilename" : "aux/client/spark-env.sh"
           }
         ]
@@ -223,18 +222,16 @@
       "pluralLabel" : "Workers",
       "startRunner" : {
         "program" : "scripts/control.sh",
-        "args" : [
-           "start_worker",
-           "./master.properties"
-        ],
+        "args" : [ "start_worker" ],
         "environmentVariables" : {
-           "SPARK_DAEMON_MEMORY" : "${worker_max_heapsize}",
-           "SPARK_IDENT_STRING" : "${user}",
-           "SPARK_WORKER_PORT" : "${worker_port}",
-           "SPARK_WORKER_WEBUI_PORT" : "${worker_webui_port}",
-           "SPARK_WORKER_DIR" : "${work_directory}",
-           "SPARK_WORKER_MEMORY" : "${executor_total_max_heapsize}",
-           "ADDITIONAL_ARGS" : "${worker_additional_args}"
+          "MASTER_FILE" : "master.properties",
+          "SPARK_DAEMON_MEMORY" : "${worker_max_heapsize}",
+          "SPARK_IDENT_STRING" : "${user}",
+          "SPARK_WORKER_PORT" : "${worker_port}",
+          "SPARK_WORKER_WEBUI_PORT" : "${worker_webui_port}",
+          "SPARK_WORKER_DIR" : "${work_directory}",
+          "SPARK_WORKER_MEMORY" : "${executor_total_max_heapsize}",
+          "ADDITIONAL_ARGS" : "${worker_additional_args}"
         }
       },
       "externalLink" : {
@@ -322,7 +319,7 @@
         ],
         "auxConfigGenerators" : [
           {
-            "filename" : "config/spark-env.sh",
+            "filename" : "spark-conf/spark-env.sh",
             "sourceFilename" : "aux/client/spark-env.sh"
           }
         ]
@@ -342,16 +339,12 @@
       "pluralLabel" : "History Servers",
       "startRunner" : {
         "program" : "scripts/control.sh",
-        "args" : [
-           "start_history_server",
-           "",
-           "-d",
-           "${spark_history_log_dir}"
-        ],
+        "args" : [ "start_history_server" ],
         "environmentVariables" : {
-           "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}",
-           // TODO: move to command line args History Server enhancements are backported.
-           "SPARK_DAEMON_JAVA_OPTS" : "-Dspark.history.ui.port=${history_server_web_port}"
+          "HISTORY_LOG_DIR" : "${spark_history_log_dir}",
+          "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}",
+          // TODO: move to command line args History Server enhancements are backported.
+          "SPARK_DAEMON_JAVA_OPTS" : "-Dspark.history.ui.port=${history_server_web_port}"
         }
       },
       "externalLink" : {
@@ -390,7 +383,7 @@
       "configWriter" : {
         "auxConfigGenerators" : [
           {
-            "filename" : "config/spark-env.sh",
+            "filename" : "spark-conf/spark-env.sh",
             "sourceFilename" : "aux/client/spark-env.sh"
           }
         ]
@@ -412,16 +405,25 @@
         "required" : "false",
         "type" : "boolean",
         "default" : true
+      },
+      {
+        "name" : "spark_python_path",
+        "label" : "Extra Python Path",
+        "description" : "Python library paths to add to PySpark applications.",
+        "required" : "false",
+        "type" : "path_array",
+        "pathType" : "serviceSpecific",
+        "separator" : ":",
+        "default" : [ ]
       }
     ],
     "scriptRunner" : {
       "program" : "scripts/control.sh",
-      "args" : [
-        "client",
-        "master.properties"
-      ],
+      "args" : [ "client" ],
       "environmentVariables" : {
-        "SPARK_JAR_HDFS_PATH" : "${spark_jar_hdfs_path}"
+        "MASTER_FILE" : "master.properties",
+        "SPARK_JAR" : "${spark_jar_hdfs_path}",
+        "PYTHON_PATH" : "${spark_python_path}"
       }
     },
     "configWriter" : {
