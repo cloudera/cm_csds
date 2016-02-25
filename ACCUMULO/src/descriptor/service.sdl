@@ -17,7 +17,7 @@
   "name" : "ACCUMULO",
   "label" : "Accumulo",
   "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system.",
-  "version" : "5.4.0",
+  "version" : "5.5.0",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "4" } },
   "runAs" : {
     "user" : "accumulo",
@@ -25,7 +25,7 @@
     "principal" : "accumulo"
   },
   "parcel" : {
-    "repoUrl" : "http://archive.cloudera.com/accumulo/parcels/1.4/",
+    "repoUrl" : "https://archive.cloudera.com/accumulo/parcels/1.4/",
     "requiredTags" : [ "cdh", "accumulo" ],
     "optionalTags" : [ "accumulo-plugin" ]
   },
