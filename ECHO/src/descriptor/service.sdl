@@ -1,0 +1,186 @@
+{
+  "name" : "ECHO",
+  "label" : "Echo",
+  "description" : "The echo service",
+  "version" : "5.5.0",
+  "runAs" : {
+    "user" : "root",
+    "group" : "root"
+   },
+   "compatibility" : {
+     "generation" : 1
+   },
+  "icon" : "images/icon.png",
+  "parameters" : [
+    {
+      "name" : "service_var1",
+      "label" : "Service Var1 Label",
+      "description" : "Service Var1 Description",
+      "configName" : "service.var1.config",
+      "type" : "string",
+      "default" : "this is a default"
+    },
+    {
+      "name" : "service_var2",
+      "label" : "Service Var2 Label",
+      "description" : "Service Var2 Description",
+      "required" : "true",
+      "type" : "long",
+      "default" : 20 ,
+      "min" : 1
+    }
+  ],
+  "hdfsDirs" : [
+     {
+       "name" : "CreateHomeDirCommand",
+       "label" : "Create Echo Home Dir",
+       "description" : "Create the home directory in HDFS for echo service",
+       "directoryDescription" : "Home directory used by Echo service",
+       "path" : "/echo",
+       "permissions" : "0700"
+     }
+  ],
+  "commands" : [
+    {
+      "name" : "EchoServiceCommandSingle",
+      "label" : "Service Command Single Label",
+      "description" : "Service Command Single Help",
+      "roleName" : "ECHO_WEBSERVER",
+      "roleCommand" : "role_cmd1",
+      "runMode" : "single"
+    },
+    {
+      "name" : "EchoServiceCommandAll",
+      "label" : "Service Command All Label",
+      "description" : "Service Command All Help",
+      "roleName" : "ECHO_WEBSERVER",
+      "roleCommand" : "role_cmd1",
+      "runMode" : "all"
+    }
+  ],
+  "roles" : [
+    {
+       "name" : "ECHO_WEBSERVER",
+       "label" : "Web Server",
+       "pluralLabel" : "Web Servers",
+       "startRunner" : {
+         "program" : "scripts/control.sh",
+         "args" : [
+            "start",
+            "./params.properties",
+            "./workers.properties"
+         ],
+         "environmentVariables" : {
+           "TEST_MESSAGE" : "Hello there people",
+           "BACKGROUND_COLOR" : "#d2d2d2"
+         }
+       },
+       "commands" : [
+         {
+           "name" : "role_cmd1",
+           "label" : "Role Cmd1 Label",
+           "description" : "Role Cmd1 Help",
+           "expectedExitCodes" : [0, 1, 2],
+           "requiredRoleState" : "running",
+           "commandRunner" : {
+             "program" : "scripts/control.sh",
+             "args" : ["cmd1"]
+           }
+         }
+       ],
+       "logging" : {
+         "dir" : "/var/log/echo",
+         "filename" : "echo-webserver-${host}.log",
+         "configName" : "log.dir",
+         "loggingType" : "other"
+       },
+      "parameters" : [
+        {
+          "name" : "role_var1",
+          "label" : "Role Var1 Label",
+          "description" : "Role Var1 Description",
+          "configName" : "role.var1.config",
+          "type" : "string",
+          "default" : "defaultVal"
+        },
+        {
+          "name" : "portNum",
+          "label" : "Webserver port",
+          "description" : "The webserver port number",
+          "configName" : "portNum",
+          "required" : "true",
+          "type" : "port",
+          "default" : 8080
+        }
+      ],
+      "configWriter" : {
+         "generators" : [
+           {
+             "filename" : "params.properties",
+             "configFormat" : "properties"
+           }
+         ],
+         "peerConfigGenerators" : [
+           {
+             "filename" : "workers.properties",
+             "params" : ["portNum"]
+           }
+          ]
+       }
+    }
+  ],
+  "gateway" : {
+    "alternatives" : {
+      "name" : "echo-conf",
+      "priority" : 50,
+      "linkRoot" : "/etc/echo"
+    },
+    "scriptRunner" : {
+      "program" : "scripts/cc.sh",
+      "args" : [
+        "arg1",
+        "arg2"
+      ],
+      "environmentVariables" : {
+        "ENV1" : "Hello there people",
+        "ENV2" : "Hi"
+      }
+    },
+    "parameters" : [
+      {
+        "name" : "client_var1",
+        "label" : "Client Var1 Label",
+        "description" : "Client Var1 Description",
+        "configName" : "client.var1.config",
+        "type" : "string"
+      },
+      {
+        "name" : "client_var2",
+        "label" : "Client Var2 Label",
+        "description" : "Client Var2 Description",
+        "required" : "true",
+        "type" : "long",
+        "configName" : "client.var2.config",
+        "default" : 1
+      }
+    ],
+    "configWriter" : {
+      "generators" : [
+        {
+          "filename" : "echo-conf/echo_client.xml",
+          "configFormat" : "hadoop_xml",
+          "excludedParams" : ["client_var2"]
+        },
+        {
+          "filename" : "echo-conf/echo_client.properties",
+          "configFormat" : "properties",
+          "includedParams" : ["service_var2", "client_var1", "client_var2"]
+        },
+        {
+          "filename" : "echo-conf/all_params.properties",
+          "configFormat" : "properties"
+        }
+      ]
+    }
+  }
+}
