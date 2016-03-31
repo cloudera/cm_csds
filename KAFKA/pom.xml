@@ -164,7 +164,7 @@
       <plugin>
         <groupId>com.cloudera.enterprise</groupId>
         <artifactId>schema-validator-maven-plugin</artifactId>
-        <version>${project.version}</version>
+        <version>5.5.3</version>
         <executions>
           <execution>
             <id>validate-generated-schema</id>
@@ -235,6 +235,11 @@
       </snapshots>
     </repository>
     <repository>
+      <id>cloudera releases repo</id>
+      <url>https://repository.cloudera.com/cloudera/cloudera-repos/</url>
+      <name>Releases Repository</name>
+    </repository>
+    <repository>
       <id>cloudera-snapshot</id>
       <url>https://repository.cloudera.com/artifactory/libs-snapshot-local</url>
       <releases>
@@ -249,14 +254,5 @@
       </snapshots>
     </repository>
   </repositories>
-
-  <pluginRepositories>
-    <pluginRepository>
-      <id>cdh.releases.repo</id>
-      <url>https://repository.cloudera.com/cloudera/cloudera-repos/</url>
-      <name>Releases Repository</name>
-    </pluginRepository>
-  </pluginRepositories>
-
 
 </project>

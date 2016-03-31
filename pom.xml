@@ -18,6 +18,7 @@
     <module>SQOOP_CLIENT</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
+    <module>KAFKA</module>
   </modules>
 
   <build>
@@ -48,5 +49,13 @@
       <name>Snapshots Repository</name>
     </snapshotRepository>
  </distributionManagement>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>cdh.releases.repo</id>
+      <url>https://repository.cloudera.com/cloudera/cloudera-repos/</url>
+      <name>Releases Repository</name>
+    </pluginRepository>
+  </pluginRepositories>
 
 </project>
