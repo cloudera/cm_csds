@@ -5,7 +5,7 @@
 
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>5.4.0</version>
+  <version>5.5.3</version>
   <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
@@ -16,9 +16,9 @@
     <module>SPARK</module>
     <module>SPARK_ON_YARN</module>
     <module>SQOOP_CLIENT</module>
-    <module>ISILON</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
+    <module>KAFKA</module>
   </modules>
 
   <build>
@@ -35,11 +35,12 @@
         </plugin>
     </plugins>
   </build>
-  
+
  <distributionManagement>
    <repository>
       <id>cdh.releases.repo</id>
-      <url>http://maven.jenkins.cloudera.com:8081/artifactory/libs-release-local</url>
+      <url>https://repository.cloudera.com/cloudera/cloudera-repos/</url>
+      <!--<url>http://maven.jenkins.cloudera.com:8081/artifactory/libs-release-local</url>-->
       <name>Releases Repository</name>
     </repository>
     <snapshotRepository>
@@ -48,5 +49,13 @@
       <name>Snapshots Repository</name>
     </snapshotRepository>
  </distributionManagement>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>cdh.releases.repo</id>
+      <url>https://repository.cloudera.com/cloudera/cloudera-repos/</url>
+      <name>Releases Repository</name>
+    </pluginRepository>
+  </pluginRepositories>
 
 </project>
