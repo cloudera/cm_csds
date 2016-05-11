@@ -17,7 +17,7 @@
   "name" : "SPARK",
   "label" : "Spark (Standalone)",
   "description" : "Apache Spark is an open source cluster computing system. This is the standalone version of the service which does not use YARN for resource management. Cloudera recommends using Spark on YARN instead of this standalone version.",
-  "version" : "5.5.0",
+  "version" : "5.7.0",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
@@ -110,6 +110,7 @@
       "name" : "SPARK_MASTER",
       "label" : "Master",
       "pluralLabel" : "Masters",
+      "jvmBased": true,
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [ "start_master" ],
@@ -220,6 +221,7 @@
       "name" : "SPARK_WORKER",
       "label" : "Worker",
       "pluralLabel" : "Workers",
+      "jvmBased": true,
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [ "start_worker" ],
@@ -337,6 +339,7 @@
       "name" : "SPARK_HISTORY_SERVER",
       "label" : "History Server",
       "pluralLabel" : "History Servers",
+      "jvmBased": true,
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [ "start_history_server" ],
@@ -377,7 +380,7 @@
           "type" : "memory",
           "unit" : "bytes",
           "min" : 67108864,
-          "default" : 268435456
+          "default" : 536870912
         }
       ],
       "configWriter" : {
@@ -426,6 +429,21 @@
         "PYTHON_PATH" : "${spark_python_path}"
       }
     },
+    "logging" : {
+      "configFilename" : "log4j.properties",
+      "loggingType" : "log4j",
+      "additionalConfigs" : [
+        { "key" : "log4j.logger.org.eclipse.jetty", "value" : "WARN" },
+        { "key" : "log4j.logger.org.spark-project.jetty", "value" : "WARN" },
+        { "key" : "log4j.logger.org.spark-project.jetty.util.component.AbstractLifeCycle", "value" : "ERROR" },
+        { "key" : "log4j.logger.org.apache.spark.repl.SparkIMain$exprTyper", "value" : "INFO" },
+        { "key" : "log4j.logger.org.apache.spark.repl.SparkILoop$SparkILoopInterpreter", "value" : "INFO" },
+        { "key" : "log4j.logger.org.apache.parquet", "value" : "ERROR" },
+        { "key" : "log4j.logger.parquet", "value" : "ERROR" },
+        { "key" : "log4j.logger.org.apache.hadoop.hive.metastore.RetryingHMSHandler", "value" : "FATAL" },
+        { "key" : "log4j.logger.org.apache.hadoop.hive.ql.exec.FunctionRegistry", "value" : "ERROR" }
+      ]
+    },
     "configWriter" : {
       "generators" : [
         {
@@ -441,10 +459,6 @@
         {
           "filename" : "spark-conf/spark-env.sh",
           "sourceFilename" : "aux/client/spark-env.sh"
-        },
-        {
-          "filename" : "spark-conf/log4j.properties",
-          "sourceFilename" : "aux/client/log4j.properties"
         }
       ],
       "peerConfigGenerators" : [
