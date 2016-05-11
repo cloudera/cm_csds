@@ -6,12 +6,12 @@
   <parent>
     <groupId>com.cloudera</groupId>
     <artifactId>csd</artifactId>
-    <version>5.5.0</version>
+    <version>5.7.0</version>
   </parent>
 
   <groupId>com.cloudera.csd</groupId>
   <artifactId>SQOOP_CLIENT</artifactId>
-  <version>5.5.0</version>
+  <version>5.7.0</version>
   <name>The Sqoop Client CSD</name>
   <packaging>pom</packaging>
 
