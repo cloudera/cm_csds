@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.5.0",
+  "version" : "5.7.0",
   "compatibility" : { "cdhVersion" : { "min" : "5.4.0", "max" : "5.5" } },
   "runAs" : {
     "user" : "spark",
@@ -139,6 +139,7 @@
       "name" : "SPARK_YARN_HISTORY_SERVER",
       "label" : "History Server",
       "pluralLabel" : "History Servers",
+      "jvmBased": true,
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [ "start_history_server" ],
@@ -220,7 +221,7 @@
           "type" : "memory",
           "unit" : "bytes",
           "min" : 67108864,
-          "default" : 268435456
+          "default" : 536870912
         }
       ],
       "configWriter" : {
@@ -387,6 +388,21 @@
         "PYTHON_PATH" : "${spark_python_path}"
       }
     },
+    "logging" : {
+      "configFilename" : "log4j.properties",
+      "loggingType" : "log4j",
+      "additionalConfigs" : [
+        { "key" : "log4j.logger.org.eclipse.jetty", "value" : "WARN" },
+        { "key" : "log4j.logger.org.spark-project.jetty", "value" : "WARN" },
+        { "key" : "log4j.logger.org.spark-project.jetty.util.component.AbstractLifeCycle", "value" : "ERROR" },
+        { "key" : "log4j.logger.org.apache.spark.repl.SparkIMain$exprTyper", "value" : "INFO" },
+        { "key" : "log4j.logger.org.apache.spark.repl.SparkILoop$SparkILoopInterpreter", "value" : "INFO" },
+        { "key" : "log4j.logger.org.apache.parquet", "value" : "ERROR" },
+        { "key" : "log4j.logger.parquet", "value" : "ERROR" },
+        { "key" : "log4j.logger.org.apache.hadoop.hive.metastore.RetryingHMSHandler", "value" : "FATAL" },
+        { "key" : "log4j.logger.org.apache.hadoop.hive.ql.exec.FunctionRegistry", "value" : "ERROR" }
+      ]
+    },
     "configWriter" : {
       "generators" : [
         {
@@ -414,10 +430,6 @@
         {
           "filename" : "spark-conf/spark-env.sh",
           "sourceFilename" : "aux/client/spark-env.sh"
-        },
-        {
-          "filename" : "spark-conf/log4j.properties",
-          "sourceFilename" : "aux/client/log4j.properties"
         }
       ],
       "peerConfigGenerators" : [
