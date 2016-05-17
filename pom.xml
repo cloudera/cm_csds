@@ -20,12 +20,7 @@
     <module>SPARK_ON_YARN53</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
-    <module>KEYTRUSTEE_SERVER</module>
     <module>KAFKA</module>
-    <module>HIVE</module>
-    <module>HDFS</module>
-    <module>HUE</module>
-    <module>IMPALA</module>
   </modules>
 
   <build>
