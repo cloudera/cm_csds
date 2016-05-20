@@ -14,13 +14,20 @@
     <module>ACCUMULO</module>
     <module>ACCUMULO16</module>
     <module>SPARK</module>
-    <module>SQOOP_CLIENT</module>
     <module>SPARK_ON_YARN</module>
     <module>SPARK_ON_YARN54</module>
     <module>SPARK_ON_YARN53</module>
+    <module>SQOOP2_BETA</module>
+    <module>SQOOP_CLIENT</module>
+    <module>ISILON</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
+    <module>KEYTRUSTEE_SERVER</module>
     <module>KAFKA</module>
+    <module>HIVE</module>
+    <module>HDFS</module>
+    <module>HUE</module>
+    <module>IMPALA</module>
   </modules>
 
   <build>
