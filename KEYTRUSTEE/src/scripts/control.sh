@@ -17,6 +17,17 @@
 # limitations under the License.
 ##
 
+add_to_kms_site() {
+  FILE=`find $CONF_DIR -name kms-site.xml`
+  CONF_END="</configuration>"
+  NEW_PROPERTY="<property><name>$1</name><value>$2</value></property>"
+  TMP_FILE=$CONF_DIR/tmp-kms-site
+  cat $FILE | sed "s#$CONF_END#$NEW_PROPERTY#g" > $TMP_FILE
+  cp $TMP_FILE $FILE
+  rm -f $TMP_FILE
+  echo $CONF_END >> $FILE
+}
+
 set -x
 
 # Time marker for both stderr and stdout
@@ -56,6 +67,8 @@ mkdir -p $CATALINA_TMPDIR
 TOMCAT_CONFIG_FOLDER=tomcat-conf.http
 if [ "x$SSL_ENABLED"  == "xtrue" ]; then
     TOMCAT_CONFIG_FOLDER=tomcat-conf.https
+else
+    SSL_ENABLED=false
 fi
 
 # Package settings for tomcat deployment
@@ -76,7 +89,29 @@ export CATALINA_BASE="$KMS_STAGING_DIR/tomcat-deployment"
 # Set up the number of threads and heap size
 export $KMS_MAX_THREADS
 export CATALINA_OPTS="-Xmx${KMS_HEAP_SIZE}"
-export CATALINA_OPTS="$CATALINA_OPTS -Djavax.net.ssl.trustStore=${KMS_SSL_TRUSTSTORE_FILE} -Djavax.net.ssl.trustStorePassword=${KMS_SSL_TRUSTSTORE_PASS}"
+
+# do some ssl password stuff in private
+set +x
+
+# Make sure settings are coherent
+if [ "$SSL_ENABLED" = "true" -a \( -z "$KMS_SSL_KEYSTORE_FILE" -o -z "$KMS_SSL_KEYSTORE_PASS" \) ]; then
+    echo "When SSL is enabled, the keystore location and password must be configured."
+    exit 1
+fi
+
+# Get Parcel Root to fix Key Trustee configuration directory location
+PARCEL_ROOT=${KEYTRUSTEE_KP_HOME%%KEYTRUSTEE*}
+echo "PARCEL_ROOT is ${PARCEL_ROOT}"
+
+# Setup Tomcat Truststore options
+export CATALINA_OPTS="$CATALINA_OPTS -Djavax.net.ssl.trustStore=${KMS_SSL_TRUSTSTORE_FILE} -Djavax.net.ssl.trustStorePassword=${KMS_SSL_TRUSTSTORE_PASS} -Dcdh.parcel.root=${PARCEL_ROOT}"
+CATALINA_OPTS_DISP=`echo ${CATALINA_OPTS} | sed -e 's/trustStorePassword=[^ ]*/trustStorePassword=***/'`
+
+#turn back on the logging
+set -x
+
+print "Using   CATALINA_OPTS:       ${CATALINA_OPTS_DISP}"
+
 
 KMS_PLUGIN_DIR=${KEYTRUSTEE_KP_HOME:-/usr/share/keytrustee-keyprovider}/lib
 
@@ -99,6 +134,8 @@ echo "KMS_SSL_KEYSTORE_FILE is ${KMS_SSL_KEYSTORE_FILE}"
 echo "KMS_PLUGIN_DIR is ${KMS_PLUGIN_DIR}"
 echo "KMS_SSL_TRUSTSTORE_FILE is ${KMS_SSL_TRUSTSTORE_FILE}"
 
+# Add zk quorum to kms-site.xml
+add_to_kms_site hadoop.kms.authentication.signer.secret.provider.zookeeper.connection.string $ZK_QUORUM
 
 # replace {{CONF_DIR}} template in kms-site.xml
 perl -pi -e "s#{{CONF_DIR}}#${CONF_DIR}#" ${CONF_DIR}/kms-site.xml
@@ -108,6 +145,12 @@ perl -pi -e "s#{{CONF_DIR}}#${CONF_DIR}#" ${CONF_DIR}/kms-site.xml
 TKP_INSECURE="false"
 if [ "$SSL_ENABLED" = "false" ]; then
     TKP_INSECURE="true"
+    unset KMS_SSL_KEYSTORE_PASS
+    unset KMS_SSL_TRUSTSTORE_PASS
+fi
+if [ -n "$ZK_QUORUM" ]; then
+    add_to_kms_site hadoop.kms.authentication.signer.secret.provider zookeeper
+    add_to_kms_site hadoop.kms.authentication.zk-dt-secret-manager.enable true
 fi
 perl -pi -e "s#{{TKP_INSECURE}}#${TKP_INSECURE}#" ${CONF_DIR}/kts-site.xml
 

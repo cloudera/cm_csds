@@ -1,16 +1,23 @@
 {
   "name" : "KEYTRUSTEE",
-  "label" : "Key Trustee",
-  "description" : "The enterprise key management service that replaces the file-based Java key store with a connection to Navigator Key Trustee.  Navigator Key Trustee maintains copies of keys on multiple redundant servers that can be located outside of the cluster.  The Key Trustee is designed for secure, authenticated administration and cryptographically strong storage of keys. <span class=\"error\">Not recommended for production use and not supported at this time.</span>",
-  "version" : "5.2.0",
+  "label" : "Key Trustee KMS",
+  "description" : "The Hadoop Key Management Service backed by Cloudera Navigator Key Trustee Server for enterprise-grade key storage and protection. Requires CDH 5.3+ and existing Key Trustee Servers. <span class=\"error\">Before adding this service, ensure that you have installed the Key Trustee binaries, which are not included in CDH.</span>",
+  "version" : "5.7.0",
+  "licenseFeature" : "KEYTRUSTEE",
   "runAs" : {
     "user" : "kms",
     "group" : "kms"
   },
+  "icon" : "images/icon.png",
   "compatibility" : {
     "cdhVersion" : {
       "min" : "5.2"
     }
+  },
+  "authorities" : {
+    "authorityForAddRemove" : "AUTH_KEY_ADMIN",
+    "defaultAuthorityForParameters" : "AUTH_KEY_ADMIN",
+    "authorityForPowerState" : "AUTH_KMS_POWER_OPS"
   },
   "providesKms" : {
     "roleName" : "KMS_KEYTRUSTEE",
@@ -20,8 +27,13 @@
   },
   "parcel": {
     "requiredTags" : ["keytrustee", "cdh"],
-    "repoUrl" : "http://archive.cloudera.com/navigator-keytrustee5/parcels/latest/"
+    "repoUrl" : "https://archive.cloudera.com/navigator-keytrustee5/parcels/latest/"
   },
+  "serviceDependencies" : [
+    {
+     "name" : "ZOOKEEPER"
+    }
+  ],
   "kerberos" : "${hadoop_kms_authentication_type}",
   "parameters" : [
     {
@@ -35,11 +47,31 @@
       "default" : "simple"
     },
     {
+      "name" : "hadoop_kms_authentication_signer_secret_provider_zookeeper_path",
+      "label" : "Authentication Secret Signer ZooKeeper Path",
+      "description" : "Authentication Secret Signer ZooKeeper path. Is required to be set for KMS High Availability deployments",
+      "required" : "true",
+      "configName" : "hadoop.kms.authentication.signer.secret.provider.zookeeper.path",
+      "type" : "string",
+      "default" : "/kmsZKRoot"
+    },
+    {
+      "name" : "hadoop_kms_authentication_signer_secret_provider_zookeeper_auth_type",
+      "label" : "ZooKeeper Authentication Type for Secret Signer",
+      "description" : "ZooKeeper Authentication for Secret Signer. Can be either \"none\" or \"sasl\"",
+      "required" : "true",
+      "configName" : "hadoop.kms.authentication.signer.secret.provider.zookeeper.auth.type",
+      "type" : "string_enum",
+      "validValues": ["none", "sasl"],
+      "default" : "none"
+    },
+    {
        "name" : "kms_load_balancer",
        "label" : "KMS Load Balancer",
-       "description" : "Key Management Store Load Balancer, required when there are multiple KMS roles (KMS High Availability)",
-       "type" : "uri",
-       "default" : ""
+       "description" : "Key Management Store Load Balancer, used with multiple KMS roles (KMS high availability). In CDH 5.4 and higher, this Key Trustee KMS service typically has the ZooKeeper dependency set, and this property is left blank. In this case, the ZooKeeper-based high availability URL is automatically generated for clients. To use an external load balancer, specify the URL to that load balancer. When using the ZooKeeper-based load balancer, all KMS roles must listen on the same port.",
+       "type" : "uri_array",
+       "separator" : ";",
+       "default" : []
     }
   ],
   "roles" : [
@@ -77,7 +109,6 @@
         }
       ],
       "sslServer" : {
-        // TODO change "tomcat" to something else, might require KMS code change
         "keyIdentifier" : "tomcat"
       },
       "sslClient" : {
@@ -164,7 +195,6 @@
           "default" : 1073741824,
           "scaleFactor" : "1.3"
         },
-        // TODO: improve the descriptions once SSL configs land
         {
           // Note that the name and configName differ here, since we munge the
           // path provided by the user into the actual config, which is a URI
@@ -194,7 +224,7 @@
         {
           "name" : "cloudera_trustee_keyprovider_hostname-ACTIVE",
           "label" : "Active Key Trustee Server",
-          "description" : "Active Key Trustee Server URL that backs the KMS.",
+          "description" : "Active Key Trustee Server hostname that backs the KMS.",
           "required" : "true",
           "configName" : "cloudera.trustee.keyprovider.hostname-ACTIVE",
           "type" : "uri",
@@ -203,7 +233,7 @@
         {
           "name" : "cloudera_trustee_keyprovider_hostname-PASSIVE",
           "label" : "Passive Key Trustee Server",
-          "description" : "Passive Key Trustee Server URL that backs the KMS. Only needed for Key Trustee Server high availability.",
+          "description" : "Passive Key Trustee Server hostname that backs the KMS. Only needed for Key Trustee Server high availability.",
           "required" : "false",
           "configName" : "cloudera.trustee.keyprovider.hostname-PASSIVE",
           "type" : "uri",
@@ -227,6 +257,16 @@
           "configName" : "cloudera.trustee.keyprovider.auth",
           "type" : "password",
           "configurableInWizard" : true
+        },
+        {
+          "name" : "cloudera_trustee_keyprovider_roundrobin",
+          "label" : "Key Trustee Server Round Robin Reads",
+          "description" : "Distribute read requests amongst the available Key Trustee Servers. Only effective when a passive server is specified.",
+          "required" : "false",
+          "default" : "false",
+          "configName" : "cloudera.trustee.keyprovider.roundrobin",
+          "type" : "boolean",
+          "configurableInWizard" : false
         },
         {
           "name" : "cloudera_trustee_keyprovider_pool_max",
@@ -289,6 +329,160 @@
           "pathType" : "localDataDir",
           "mode" : "0700",
           "default" : "/var/lib/keytrustee-kms"
+        },
+        // Proxy user configurations
+        // oozie
+        {
+          "name" : "hadoop_kms_proxyuser_oozie_hosts",
+          "configName" : "hadoop.kms.proxyuser.oozie.hosts",
+          "label" : "Oozie Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the oozie user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_oozie_groups",
+          "configName" : "hadoop.kms.proxyuser.oozie.groups",
+          "label" : "Oozie Proxy User Groups",
+          "description" : "Allows the oozie superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // Flume
+        {
+          "name" : "hadoop_kms_proxyuser_flume_hosts",
+          "configName" : "hadoop.kms.proxyuser.flume.hosts",
+          "label" : "Flume Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the flume user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_flume_groups",
+          "configName" : "hadoop.kms.proxyuser.flume.groups",
+          "label" : "Flume Proxy User Groups",
+          "description" : "Allows the flume superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // HTTP
+        {
+          "name" : "hadoop_kms_proxyuser_HTTP_hosts",
+          "configName" : "hadoop.kms.proxyuser.HTTP.hosts",
+          "label" : "HTTP Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the HTTP user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_HTTP_groups",
+          "configName" : "hadoop.kms.proxyuser.HTTP.groups",
+          "label" : "HTTP Proxy User Groups",
+          "description" : "Allows the HTTP superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // HDFS
+        {
+          "name" : "hadoop_kms_proxyuser_hdfs_hosts",
+          "configName" : "hadoop.kms.proxyuser.hdfs.hosts",
+          "label" : "HDFS Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the hdfs user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_hdfs_groups",
+          "configName" : "hadoop.kms.proxyuser.hdfs.groups",
+          "label" : "HDFS Proxy User Groups",
+          "description" : "Allows the hdfs superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // Hive
+        {
+          "name" : "hadoop_kms_proxyuser_hive_hosts",
+          "configName" : "hadoop.kms.proxyuser.hive.hosts",
+          "label" : "Hive Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the hive user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_hive_groups",
+          "configName" : "hadoop.kms.proxyuser.hive.groups",
+          "label" : "Hive Proxy User Groups",
+          "description" : "Allows the hive superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // Hue
+        {
+          "name" : "hadoop_kms_proxyuser_hue_hosts",
+          "configName" : "hadoop.kms.proxyuser.hue.hosts",
+          "label" : "Hue Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the hue user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_hue_groups",
+          "configName" : "hadoop.kms.proxyuser.hue.groups",
+          "label" : "Hue Proxy User Groups",
+          "description" : "Allows the hue superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // HttpFS
+        {
+          "name" : "hadoop_kms_proxyuser_httpfs_hosts",
+          "configName" : "hadoop.kms.proxyuser.httpfs.hosts",
+          "label" : "HttpFS Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the httpfs user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_httpfs_groups",
+          "configName" : "hadoop.kms.proxyuser.httpfs.groups",
+          "label" : "HttpFS Proxy User Groups",
+          "description" : "Allows the httpfs superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // yarn
+        {
+          "name" : "hadoop_kms_proxyuser_yarn_hosts",
+          "configName" : "hadoop.kms.proxyuser.yarn.hosts",
+          "label" : "YARN Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the yarn user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_yarn_groups",
+          "configName" : "hadoop.kms.proxyuser.yarn.groups",
+          "label" : "YARN Proxy User Groups",
+          "description" : "Allows the yarn superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        // mapred
+        {
+          "name" : "hadoop_kms_proxyuser_mapred_hosts",
+          "configName" : "hadoop.kms.proxyuser.mapred.hosts",
+          "label" : "Mapred Proxy User Hosts",
+          "description" : "Comma-delimited list of hosts where you want to allow the mapred user to impersonate other users. The default '*' allows all hosts. To disable entirely, use a string that doesn't correspond to a host name, such as '_no_host'.",
+          "type" : "string",
+          "default" : "*"
+        },
+        {
+          "name" : "hadoop_kms_proxyuser_mapred_groups",
+          "configName" : "hadoop.kms.proxyuser.mapred.groups",
+          "label" : "Mapred Proxy User Groups",
+          "description" : "Allows the mapred superuser to impersonate any members of a comma-delimited list of groups. The default '*' allows all groups. To disable entirely, use a string that doesn't correspond to a group name, such as '_no_group_'.",
+          "type" : "string",
+          "default" : "*"
         }
       ],
       "configWriter" : {
@@ -296,11 +490,15 @@
           {
             "filename" : "kms-site.xml",
             "configFormat" : "hadoop_xml",
-            "includedParams": ["hadoop_kms_authentication_type"],
+            "includedParams": [ "hadoop_kms_authentication_type", "hadoop_kms_proxyuser_oozie_hosts", "hadoop_kms_proxyuser_oozie_groups",  "hadoop_kms_proxyuser_flume_hosts",  "hadoop_kms_proxyuser_flume_groups",  "hadoop_kms_proxyuser_HTTP_hosts",  "hadoop_kms_proxyuser_HTTP_groups",  "hadoop_kms_proxyuser_hdfs_hosts",  "hadoop_kms_proxyuser_hdfs_groups",  "hadoop_kms_proxyuser_hive_hosts",  "hadoop_kms_proxyuser_hive_groups",  "hadoop_kms_proxyuser_hue_hosts",  "hadoop_kms_proxyuser_hue_groups",  "hadoop_kms_proxyuser_httpfs_hosts",  "hadoop_kms_proxyuser_httpfs_groups",  "hadoop_kms_proxyuser_mapred_hosts",  "hadoop_kms_proxyuser_mapred_groups", "hadoop_kms_proxyuser_yarn_hosts", "hadoop_kms_proxyuser_yarn_groups", "hadoop_kms_authentication_signer_secret_provider_zookeeper_path", "hadoop_kms_authentication_signer_secret_provider_zookeeper_auth_type"],
             "kerberosPrincipals" : [
               {
                 "principalName" : "kms_principal",
                 "propertyName" : "hadoop.kms.authentication.kerberos.principal"
+              },
+              {
+                "principalName" : "kms_principal",
+                "propertyName" : "hadoop.kms.authentication.signer.secret.provider.zookeeper.kerberos.principal"
               }
             ],
             "additionalConfigs" : [
@@ -310,18 +508,22 @@
               },
               {
                 "key" : "hadoop.kms.authentication.kerberos.name.rules",
-                "value" : "DEFAULT"
+                "type" : "authToLocal"
               },
               {
                 "key" : "hadoop.kms.authentication.kerberos.keytab",
                 "value" : "{{CONF_DIR}}/keytrustee.keytab"
+              },
+              {
+                "key" : "hadoop.kms.authentication.signer.secret.provider.zookeeper.kerberos.keytab",
+                "value" : "{{CONF_DIR}}/keytrustee.keytab"
               }
             ]
           },
-	{
+          {
             "filename" : "kts-site.xml",
             "configFormat" : "hadoop_xml",
-            "includedParams": ["cloudera_trustee_keyprovider_hostname-ACTIVE", "cloudera_trustee_keyprovider_hostname-PASSIVE", "cloudera_trustee_keyprovider_org", "cloudera_trustee_keyprovider_auth", "cloudera_trustee_keyprovider_pool_max", "cloudera_trustee_keyprovider_pool_min_idle", "cloudera_trustee_keyprovider_pool_max_idle", "cloudera_trustee_keyprovider_pool_abandoned_timeout"],
+            "includedParams": ["cloudera_trustee_keyprovider_hostname-ACTIVE", "cloudera_trustee_keyprovider_hostname-PASSIVE", "cloudera_trustee_keyprovider_org", "cloudera_trustee_keyprovider_auth", "cloudera_trustee_keyprovider_roundrobin", "cloudera_trustee_keyprovider_pool_max", "cloudera_trustee_keyprovider_pool_min_idle", "cloudera_trustee_keyprovider_pool_max_idle", "cloudera_trustee_keyprovider_pool_abandoned_timeout"],
             "additionalConfigs" : [
               {
                 "key" : "cloudera.trustee.keyprovider.insecure",
@@ -352,6 +554,7 @@
           {
             "filename" : "kms-acls.xml",
             "configFormat" : "hadoop_xml",
+            "refreshable" : "true",
             "includedParams": [],
             "additionalConfigs" : [
               // blacklist ACLs
@@ -399,6 +602,18 @@
               {
                 "key" : "default.key.acl.READ",
                 "value" : "*"
+              },
+              {
+                "key" : "keytrustee.kms.acl.UNDELETE",
+                "value" : "*"
+              },
+              {
+                "key" : "keytrustee.kms.acl.PURGE",
+                "value" : "*"
+              },
+              {
+                "key" : "default.key.acl.MIGRATE",
+                "value" : "*"
               }
             ]
           },
@@ -410,5 +625,10 @@
         ]
       }
     }
-  ]
+  ],
+  "rollingRestart" : {
+    "nonWorkerSteps" : [{
+      "roleName" : "KMS_KEYTRUSTEE"
+    }]
+  }
 }
