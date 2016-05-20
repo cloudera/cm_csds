@@ -35,6 +35,21 @@ export KMS_HOME=${KMS_HOME:-$DEFAULT_KMS_HOME}
 # Set KMS config dir to conf dir
 export KMS_CONFIG=${CONF_DIR}
 
+# Disabling logging to protect the password
+set +x
+
+# Make sure settings are coherent
+if [ "$SSL_ENABLED" = "true" -a \( -z "$KMS_SSL_KEYSTORE_FILE" -o -z "$KMS_SSL_KEYSTORE_PASS" \) ]; then
+    echo "When SSL is enabled, the keystore location and password must be configured."
+    exit 1
+fi
+
+# Make sure the password gets set
+export HADOOP_KEYSTORE_PASSWORD=${KMS_JKS_PASSWORD:-none}
+
+# Re-enabling logging
+set -x
+
 # We want verbose startup logs
 export KMS_SILENT=false
 
@@ -56,6 +71,8 @@ mkdir -p $CATALINA_TMPDIR
 TOMCAT_CONFIG_FOLDER=tomcat-conf.http
 if [ "x$SSL_ENABLED"  == "xtrue" ]; then
     TOMCAT_CONFIG_FOLDER=tomcat-conf.https
+else
+    SSL_ENABLED=false
 fi
 
 # Package settings for tomcat deployment
@@ -74,7 +91,7 @@ TOMCAT_CONF=$TOMCAT_CONF_BASE/$TOMCAT_CONFIG_FOLDER
 export CATALINA_BASE="$KMS_STAGING_DIR/tomcat-deployment"
 
 # Set up the number of threads and heap size
-export $KMS_MAX_THREADS
+export KMS_MAX_THREADS
 export CATALINA_OPTS="-Xmx${KMS_HEAP_SIZE}"
 
 # Deploy KMS tomcat app.
@@ -91,6 +108,12 @@ echo "TOMCAT_CONF is ${TOMCAT_CONF}"
 echo "CATALINA_BASE is ${CATALINA_BASE}"
 echo "SSL_ENABLED is ${SSL_ENABLED}"
 echo "KMS_SSL_KEYSTORE_FILE is ${KMS_SSL_KEYSTORE_FILE}"
+
+
+if [ "$SSL_ENABLED" = "false" ]; then
+    unset KMS_SSL_KEYSTORE_PASS
+    unset KMS_SSL_TRUSTSTORE_PASS
+fi
 
 # replace {{CONF_DIR}} template in kms-site.xml
 perl -pi -e "s#{{CONF_DIR}}#${CONF_DIR}#" ${CONF_DIR}/kms-site.xml
