@@ -7,6 +7,9 @@
     {
       "name" : "KAFKA_BROKER",
       "nameForCrossEntityAggregateMetrics" : "kafka_brokers",
+      "additionalMutableAttributeNames" : [
+          "kafkaBrokerId"
+      ],
       "metricDefinitions" : []
     }
   ],
@@ -27,6 +30,12 @@
          "name" : "kafkaPartitionId",
          "label" : "Partition Id",
          "description" : "Id of a Kafka topic partition.",
+         "valueCaseSensitive": false
+       },
+       {
+         "name" : "kafkaBrokerId",
+         "label" : "Broker Id",
+         "description" : "Id of a Kafka broker.",
          "valueCaseSensitive": false
        }
      ],

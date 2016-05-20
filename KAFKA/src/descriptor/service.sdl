@@ -43,6 +43,7 @@
       "required": "true"
     }
   ],
+  "kerberos" : "${kerberos.auth.enable}",
   "parameters": [
     {
       "name": "zookeeper.chroot",
@@ -50,6 +51,14 @@
       "description": "ZNode in ZooKeeper that should be used as a root for this Kafka cluster.",
       "type": "string",
       "default": "",
+      "configurableInWizard": true
+    },
+    {
+      "name" : "kerberos.auth.enable",
+      "label" : "Enable Kerberos Authentication",
+      "description" : "Enable Kerberos authentication for this KAFKA service.",
+      "type" : "boolean",
+      "default" : "false",
       "configurableInWizard": true
     },
     {
@@ -264,6 +273,66 @@
       "unit": "milliseconds"
     },
     {
+      "name": "log.cleaner.enable",
+      "label": "Enable Log Compaction",
+      "description": "Enables the log cleaner to compact topics with cleanup.policy=compact on this cluster.",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "log.cleaner.threads",
+      "label": "Number of Log Cleaner Threads",
+      "description": "The number of background threads to use for log cleaning.",
+      "type": "long",
+      "default": 1,
+      "min": 1,
+      "max": 2147483647
+    },
+    {
+      "name": "log.cleaner.dedupe.buffer.size",
+      "label": "Log Cleaner Deduplication Buffer Size",
+      "description": "The total memory used for log deduplication across all cleaner threads. This memory is statically allocated and will not cause GC problems.",
+      "type": "long",
+      "default": 134217728,
+      "min": 1048576,
+      "max": 2147483647,
+      "unit": "bytes"
+    },
+    {
+      "name": "log.cleaner.min.cleanable.ratio",
+      "label": "Log Cleaner Clean Ratio",
+      "description": "Controls how frequently the log cleaner will attempt to clean the log. This ratio bounds the maximum space wasted in the log by duplicates. For example, at 0.5 at most 50% of the log could be duplicates. A higher ratio will mean fewer, more efficient cleanings but will mean more wasted space in the log.",
+      "type": "double",
+      "default": 0.50,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "log.cleaner.delete.retention.ms",
+      "label": "Log Compaction Delete Record Retention Time",
+      "description": "The amount of time to retain delete messages for log compacted topics. Once a consumer has seen an original message you need to ensure it also sees the delete message. If you removed the delete message too quickly, this might not happen. As a result there is a configurable delete retention time.",
+      "type": "long",
+      "default": 604800000,
+      "min": -1,
+      "unit": "milliseconds"
+    },
+    {
+      "name": "quota.consumer.default",
+      "label": "Default Consumer Quota",
+      "description": "Any consumer distinguished by clientId/consumer group will get throttled if it fetches more bytes than this value per-second. Only respected by Kafka 2.0 or later.",
+      "type": "long",
+      "min": 0,
+      "unit": "bytes"
+    },
+    {
+      "name": "quota.producer.default",
+      "label": "Default Producer Quota",
+      "description": "Any producer distinguished by clientId will get throttled if it produces more bytes than this value per-second. Only respected by Kafka 2.0 or later.",
+      "type": "long",
+      "min": 0,
+      "unit": "bytes"
+    },
+    {
       "name": "monitoring.enabled",
       "label": "Enable Kafka Monitoring (Note: Requires Kafka-1.3.0 parcel or higher)",
       "description": "Enables Kafka monitoring.",
@@ -296,13 +365,43 @@
           "start"
         ],
         "environmentVariables": {
+          "HOST": "${host}",
           "CHROOT": "${zookeeper.chroot}",
           "JMX_PORT": "${jmx_port}",
+          "PORT": "${port}",
+          "SSL_PORT": "${ssl_port}",
           "ENABLE_MONITORING": "${monitoring.enabled}",
           "METRIC_REPORTERS": "${kafka.metrics.reporters}",
           "BROKER_HEAP_SIZE": "${broker_max_heap_size}",
-          "BROKER_JAVA_OPTS": "${broker_java_opts}"
+          "BROKER_JAVA_OPTS": "${broker_java_opts}",
+          "BROKER_SSL_ENABLED" : "${ssl_enabled}",
+          "KERBEROS_AUTH_ENABLED" : "${kerberos.auth.enable}",
+          "SECURITY_INTER_BROKER_PROTOCOL" : "${security.inter.broker.protocol}",
+          "AUTHENTICATE_ZOOKEEPER_CONNECTION": "${authenticate.zookeeper.connection}"
         }
+      },
+      "kerberosPrincipals" : [
+        {
+          "name" : "KAFKA_PRINCIPAL",
+          "primary" : "kafka",
+          "instance" : "${host}"
+        }
+      ],
+      "sslServer": {
+        "keyIdentifier" : "kafka",
+        "enabledConfigName" : "ssl_enabled",
+        "keystoreLocationConfigName" : "ssl.keystore.location",
+        "keystorePasswordConfigName" : "ssl.keystore.password.generator",
+        "keystorePasswordCredentialProviderCompatible" : false,
+        "keystorePasswordScriptBased" : true,
+        "keyPasswordOptionality" : "required",
+        "keystoreKeyPasswordConfigName" : "ssl.key.password.generator",
+        "keystoreKeyPasswordScriptBased" : true
+      },
+      "sslClient": {
+        "truststoreLocationConfigName" : "ssl.truststore.location",
+        "truststorePasswordConfigName" : "ssl.truststore.password.generator",
+        "truststorePasswordScriptBased" : true
       },
       "logging": {
         "dir": "/var/log/kafka",
@@ -321,7 +420,60 @@
               "kafka.metrics.reporters",
               "zookeeper.chroot",
               "broker_max_heap_size",
-              "broker_java_opts"
+              "broker_java_opts",
+              "ssl_enabled",
+              "ssl_port",
+              "ssl_server_keystore_location",
+              "ssl_client_truststore_location",
+              "ssl_server_keystore_password",
+              "ssl_server_keystore_keypassword",
+              "ssl_client_truststore_password",
+              "ssl.client.auth"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "#ssl.configs",
+                "value" : "{{SSL_CONFIGS}}"
+              },
+              {
+                "key" : "#listeners",
+                "value" : "{{LISTENERS}}"
+              },
+              {
+                "key": "broker.id.generation.enable",
+                "value": "false"
+              },
+              {
+                "key" : "sasl.kerberos.service.name",
+                "value" : "kafka"
+              }
+            ]
+          },
+          {
+            "filename": "ssl.properties",
+            "configFormat": "properties",
+            "includedParams": [
+              "ssl_server_keystore_location",
+              "ssl_server_keystore_password",
+              "ssl_server_keystore_keypassword",
+              "ssl_client_truststore_location",
+              "ssl_client_truststore_password",
+              "ssl.client.auth"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "ssl.protocol",
+                "value" : "TLS"
+              },{
+                "key" : "ssl.enabled.protocols",
+                "value" : "TLSv1.2,TLSv1.1,TLSv1"
+              },{
+                "key" : "ssl.keystore.type",
+                "value" : "JKS"
+              },{
+                "key" : "ssl.truststore.type",
+                "value" : "JKS"
+              }
             ]
           },
           {
@@ -369,6 +521,37 @@
           "description": "Port for JMX.",
           "type": "port",
           "default": 9393
+        },
+        {
+          "name": "ssl_port",
+          "label": "TLS/SSL Port",
+          "description": "Kafka broker secure port.",
+          "type": "port",
+          "default": 9093,
+          "configurableInWizard": true
+        },
+        {
+          "name": "ssl.client.auth",
+          "label": "SSL Client Authentication",
+          "description": "Client authentication mode for SSL connections. Default is none, could be set to \"required\", i.e., client authentication is required or to \"requested\", i.e., client authentication is requested and client without certificates can still connect.",
+          "type": "string_enum",
+          "validValues" : [ "none", "required", "requested" ],
+          "default": "none"
+        },
+        {
+          "name": "security.inter.broker.protocol",
+          "label": "Inter Broker Protocol",
+          "description": "Protocol to be used for inter-broker communication.",
+          "type": "string_enum",
+          "validValues" : [ "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL" ],
+          "default": "PLAINTEXT"
+        },
+        {
+          "name": "authenticate.zookeeper.connection",
+          "label": "Authenticate Zookeeper Connection",
+          "description": "Authenticate a SASL connection with zookeeper, if Kerberos authentication is enabled. It also allows a broker to set SASL ACL on zookeeper nodes which locks these nodes down so that only kafka broker can modify.",
+          "type": "boolean",
+          "default": true
         },
         {
           "name": "log.dirs",
@@ -511,6 +694,7 @@
           "start"
         ],
         "environmentVariables": {
+          "CHROOT": "${zookeeper.chroot}",
           "NO_DATA_LOSS": "${no.data.loss}",
           "WHITELIST": "${whitelist}",
           "BLACKLIST": "${blacklist}",
@@ -518,7 +702,17 @@
           "NUM_STREAMS": "${num.streams}",
           "QUEUE_SIZE": "${queue.size}",
           "QUEUE_BYTE_SIZE": "${queue.byte.size}",
-          "JMX_PORT": "${jmx_port}"
+          "JMX_PORT": "${jmx_port}",
+          "ABORT_ON_SEND_FAILURE": "${abort.on.send.failure}",
+          "OFFSET_COMMIT_INTERVAL_MS": "${offset.commit.interval.ms}",
+          "CONSUMER_REBALANCE_LISTENER": "${consumer.rebalance.listener}",
+          "CONSUMER_REBALANCE_LISTENER_ARGS": "${consumer.rebalance.listener.args}",
+          "MESSAGE_HANDLER": "${message.handler}",
+          "MESSAGE_HANDLER_ARGS": "${message.handler.args}",
+          "SOURCE_SECURITY_PROTOCOL": "${source.security.protocol}",
+          "DESTINATION_SECURITY_PROTOCOL": "${destination.security.protocol}",
+          "SOURCE_SSL_CLIENT_AUTH": "${source.ssl.client.auth}",
+          "DESTINATION_SSL_CLIENT_AUTH": "${destination.ssl.client.auth}"
         }
       },
       "logging": {
@@ -531,13 +725,53 @@
       "topology": {
         "minInstances": "0"
       },
+      "sslServer": {
+        "keyIdentifier" : "kafka_mirror_maker",
+        "enabledConfigName" : "ssl_enabled",
+        "keystoreLocationConfigName" : "ssl.keystore.location",
+        "keystorePasswordConfigName" : "ssl.keystore.password.generator",
+        "keystorePasswordCredentialProviderCompatible" : false,
+        "keystorePasswordScriptBased" : true,
+        "keyPasswordOptionality" : "required",
+        "keystoreKeyPasswordConfigName" : "ssl.key.password.generator",
+        "keystoreKeyPasswordScriptBased" : true
+      },
+      "sslClient": {
+        "truststoreLocationConfigName" : "ssl.truststore.location",
+        "truststorePasswordConfigName" : "ssl.truststore.password.generator",
+        "truststorePasswordScriptBased" : true
+      },
+      "kerberosPrincipals" : [
+        {
+          "name" : "KAFKA_MIRROR_MAKER_PRINCIPAL",
+          "primary" : "kafka_mirror_maker",
+          "instance" : "${host}"
+        }
+      ],
       "configWriter": {
         "generators": [
           {
             "filename": "mirror_maker_producers.properties",
             "configFormat": "properties",
             "includedParams": [
-              "bootstrap.servers"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "bootstrap.servers",
+                "value" : "${bootstrap.servers}"
+              },
+              {
+                "key" : "#ssl.configs",
+                "value" : "{{SSL_CONFIGS}}"
+              },
+              {
+                "key" : "security.protocol",
+                "value" : "${destination.security.protocol}"
+              },
+              {
+                "key" : "sasl.kerberos.service.name",
+                "value" : "kafka"
+              }
             ]
           },
           {
@@ -545,6 +779,41 @@
             "configFormat": "properties",
             "includedParams": [
               "group.id"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "bootstrap.servers",
+                "value" : "${source.bootstrap.servers}"
+              },
+              {
+                "key" : "#ssl.configs",
+                "value" : "{{SSL_CONFIGS}}"
+              },
+              {
+                "key" : "security.protocol",
+                "value" : "${source.security.protocol}"
+              },
+              {
+                "key" : "sasl.kerberos.service.name",
+                "value" : "kafka"
+              }
+            ]
+          },
+          {
+            "filename": "ssl_server.properties",
+            "configFormat": "properties",
+            "includedParams": [
+              "ssl_server_keystore_location",
+              "ssl_server_keystore_password",
+              "ssl_server_keystore_keypassword"
+            ]
+          },
+          {
+            "filename": "ssl_client.properties",
+            "configFormat": "properties",
+            "includedParams": [
+              "ssl_client_truststore_location",
+              "ssl_client_truststore_password"
             ]
           }
         ]
@@ -561,12 +830,22 @@
           "name": "bootstrap.servers",
           "label": "Destination Broker List",
           "description": "List of brokers on destination cluster. This should be more than one, for high availability, but there's no need to list all brokers.",
-          "type": "string"
+          "type": "string",
+          "required": "true",
+          "configurableInWizard": true
+        },
+        {
+          "name": "source.bootstrap.servers",
+          "label": "Source Broker List",
+          "description": "List of brokers on source cluster. This should be more than one, for high availability, but there's no need to list all brokers.",
+          "type": "string",
+          "required": "true",
+          "configurableInWizard": true
         },
         {
           "name": "no.data.loss",
           "label": "Avoid Data Loss",
-          "description": "Run with MirrorMaker settings that eliminate potential loss of data. This impacts performance, but is highly recommended.",
+          "description": "Run with MirrorMaker settings that eliminate potential loss of data. This impacts performance, but is highly recommended. WARNING: Does not work with Kafka 2.0 or later.",
           "type": "boolean",
           "default": true
         },
@@ -575,19 +854,21 @@
           "label": "Topic Whitelist",
           "description": "Regular expression that represents a set of topics to mirror. Note that whitelist and blacklist parameters are mutually exclusive. If both are defined, only the whilelist is used.",
           "type": "string",
-          "default": ""
+          "default": "",
+          "configurableInWizard": true
         },
         {
           "name": "blacklist",
           "label": "Topic Blacklist",
-          "description": "Regular expression that represents a set of topics to avoid mirroring. Note that whitelist and blacklist parameters are mutually exclusive. If both are defined, only the whilelist is used.",
+          "description": "Regular expression that represents a set of topics to avoid mirroring. Note that whitelist and blacklist parameters are mutually exclusive. If both are defined, only the whilelist is used. WARNING: Does not work with Kafka 2.0 or later.",
           "type": "string",
-          "default": ""
+          "default": "",
+          "configurableInWizard": true
         },
         {
           "name": "num.producers",
           "label": "Number of Producers",
-          "description": "Number of producer instances.",
+          "description": "Number of producer instances. WARNING: Does not work with Kafka 2.0 or later.",
           "type": "long",
           "default": 1,
           "min": 1
@@ -603,7 +884,7 @@
         {
           "name": "queue.size",
           "label": "Message Queue Size",
-          "description": "Number of messages that are buffered between producer and consumer.",
+          "description": "Number of messages that are buffered between producer and consumer. WARNING: Does not work with Kafka 2.0 or later.",
           "type": "long",
           "default": 10000,
           "min": 1
@@ -611,7 +892,7 @@
         {
           "name": "queue.byte.size",
           "label": "Queue Size",
-          "description": "Maximum number of bytes that can be buffered between producer and consumer.",
+          "description": "Maximum number of bytes that can be buffered between producer and consumer. WARNING: Does not work with Kafka 2.0 or later.",
           "type": "long",
           "default": 100000000,
           "unit": "bytes"
@@ -622,6 +903,79 @@
           "description": "Port for JMX.",
           "type": "port",
           "default": 9394
+        },
+        {
+          "name": "abort.on.send.failure",
+          "label": "Abort on Send Failure",
+          "description": "Stop the entire mirror maker when a send failure occurs.",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "name": "offset.commit.interval.ms",
+          "label": "Offset Commit Interval",
+          "description": "Offset commit interval in milliseconds.",
+          "type": "long",
+          "default": 60000,
+          "min": 1
+        },
+        {
+          "name": "consumer.rebalance.listener",
+          "label": "MirrorMaker Consumer Rebalance Listener",
+          "description": "A consumer rebalance listener of type ConsumerRebalanceListener to be invoked when MirrorMaker's consumer rebalances.",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "consumer.rebalance.listener.args",
+          "label": "MirrorMaker Consumer Rebalance Listener Arguments",
+          "description": "Arguments used by MirrorMaker consumer rebalance listener.",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "message.handler",
+          "label": "MirrorMaker Message Handler",
+          "description": "A MirrorMaker message handler of type MirrorMakerMessageHandler that will process every record in-between producer and consumer.",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "message.handler.args",
+          "label": "MirrorMaker Message Handler Arguments",
+          "description": "Arguments used by MirrorMaker message handler.",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "name": "source.security.protocol",
+          "label": "Source Kafka Cluster's Security Protocol",
+          "description": "Protocol to be used for communication with source kafka cluster.",
+          "type": "string_enum",
+          "validValues" : [ "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL" ],
+          "default": "PLAINTEXT"
+        },
+        {
+          "name": "destination.security.protocol",
+          "label": "Destination Kafka Cluster's Security Protocol",
+          "description": "Protocol to be used for communication with destination kafka cluster.",
+          "type": "string_enum",
+          "validValues" : [ "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL" ],
+          "default": "PLAINTEXT"
+        },
+        {
+          "name": "source.ssl.client.auth",
+          "label": "Source Kafka Cluster's Client Auth",
+          "description": "Only required if source Kafka cluster requires client authentication.",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "name": "destination.ssl.client.auth",
+          "label": "Destination Kafka Cluster's Client Auth",
+          "description": "Only required if destination Kafka cluster requires client authentication.",
+          "type": "boolean",
+          "default": false
         }
       ]
     }
