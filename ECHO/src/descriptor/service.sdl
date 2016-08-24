@@ -2,7 +2,7 @@
   "name" : "ECHO",
   "label" : "Echo",
   "description" : "The echo service",
-  "version" : "5.7.0",
+  "version" : "5.8.0",
   "runAs" : {
     "user" : "root",
     "group" : "root"
