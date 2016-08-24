@@ -31,18 +31,25 @@ echo "Host: $HOST"
 echo "Pwd: `pwd`"
 echo "CONF_DIR: $CONF_DIR"
 echo "KAFKA_HOME: $KAFKA_HOME"
-echo "Zoookeper Quorum: $ZK_QUORUM"
-echo "Chroot: $CHROOT"
+echo "Zookeeper Quorum: $ZK_QUORUM"
+echo "Zookeeper Chroot: $CHROOT"
 echo "PORT: $PORT"
 echo "JMX_PORT: $JMX_PORT"
 echo "SSL_PORT: $SSL_PORT"
 echo "ENABLE_MONITORING: ${ENABLE_MONITORING}"
 echo "METRIC_REPORTERS: ${METRIC_REPORTERS}"
 echo "BROKER_HEAP_SIZE: ${BROKER_HEAP_SIZE}"
+echo "BROKER_JAVA_OPTS: ${BROKER_JAVA_OPTS}"
+echo "BROKER_SSL_ENABLED: ${BROKER_SSL_ENABLED}"
 echo "KERBEROS_AUTH_ENABLED: ${KERBEROS_AUTH_ENABLED}"
 echo "KAFKA_PRINCIPAL: ${KAFKA_PRINCIPAL}"
 echo "SECURITY_INTER_BROKER_PROTOCOL: ${SECURITY_INTER_BROKER_PROTOCOL}"
 echo "AUTHENTICATE_ZOOKEEPER_CONNECTION: ${AUTHENTICATE_ZOOKEEPER_CONNECTION}"
+
+KAFKA_VERSION=$(grep "^version=" $KAFKA_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
+KAFKA_MAJOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 1)
+echo "Kafka version found: ${KAFKA_VERSION}"
+
 
 if [[ -z ${ZK_PRINCIPAL_NAME} ]]; then
     ZK_PRINCIPAL_NAME="zookeeper"
@@ -56,13 +63,16 @@ if [[ -n $CHROOT ]]; then
 fi
 echo "Final Zookeeper Quorum is $QUORUM"
 
-if ! grep zookeeper.connect= ${CONF_DIR}/kafka.properties; then
-    echo "zookeeper.connect=$QUORUM" >> ${CONF_DIR}/kafka.properties
-fi
+# Replace zookeeper.connect placeholder
+perl -pi -e "s#\#zookeeper.connect={{QUORUM}}#zookeeper.connect=${QUORUM}#" $CONF_DIR/kafka.properties
 
 # Add monitoring parameters - note that if any of the jars in kafka.metrics.reporters is missing, Kafka will fail to start
 if [[ ${ENABLE_MONITORING} == "true" ]]; then
-    echo "kafka.metrics.reporters=${METRIC_REPORTERS}" >>  $CONF_DIR/kafka.properties
+    # Replace kafka.metrics.reporters placeholder
+    perl -pi -e "s#\#kafka.metrics.reporters={{METRIC_REPORTERS}}#kafka.metrics.reporters=${METRIC_REPORTERS}#" $CONF_DIR/kafka.properties
+else
+    # Remove kafka.metrics.reporters placeholder
+    perl -pi -e "s#\#kafka.metrics.reporters={{METRIC_REPORTERS}}##" $CONF_DIR/kafka.properties
 fi
 
 # Add SSL parameters
@@ -72,8 +82,6 @@ if [[ ${BROKER_SSL_ENABLED} == "true" ]]; then
         echo "$KAFKA_HOME/cloudera/cdh_version.properties not found. Assuming older version of Kafka is being used that does not support SSL."
         exit 1
     else
-        KAFKA_VERSION=$(grep "^version=" $KAFKA_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
-        KAFKA_MAJOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 1)
         if [[ $KAFKA_MAJOR_VERSION < $MIN_KAFKA_MAJOR_VERSION_WITH_SSL ]]; then
             echo "Kafka version, $KAFKA_VERSION, does not support SSL"
             exit 1
@@ -84,9 +92,12 @@ if [[ ${BROKER_SSL_ENABLED} == "true" ]]; then
     # Append other ssl params from ssl.properties
     SSL_CONFIGS=$(cat ssl.properties)
 
-    # If user has not provided safety valve, replace SSL_CONFIGS's placeholder
+    # Replace SSL_CONFIGS's placeholder
     perl -pi -e "s#\#ssl.configs={{SSL_CONFIGS}}#${SSL_CONFIGS}#" $CONF_DIR/kafka.properties
     set -x
+else
+    # Remove SSL_CONFIGS's placeholder
+    perl -pi -e "s#\#ssl.configs={{SSL_CONFIGS}}##" $CONF_DIR/kafka.properties
 fi
 
 # Generate JAAS config file
@@ -119,7 +130,6 @@ Client {
     echo "${JAAS_CONFIGS}" > $CONF_DIR/jaas.conf
 fi
 
-
 # Security protocol to be used
 SECURITY_PROTOCOL=""
 if [[ ${KERBEROS_AUTH_ENABLED} == "true" ]]; then
@@ -136,15 +146,24 @@ else
     fi
 fi
 
+# Replace security.inter.broker.protocol placeholder
+if [[ ${SECURITY_INTER_BROKER_PROTOCOL} == "INFERRED" ]]; then
+    echo "security.inter.broker.protocol inferred as ${SECURITY_PROTOCOL}"
+    perl -pi -e "s#\#security.inter.broker.protocol={{SECURITY_INTER_BROKER_PROTOCOL}}#security.inter.broker.protocol=${SECURITY_PROTOCOL}#" $CONF_DIR/kafka.properties
+else
+    perl -pi -e "s#\#security.inter.broker.protocol={{SECURITY_INTER_BROKER_PROTOCOL}}#security.inter.broker.protocol=${SECURITY_INTER_BROKER_PROTOCOL}#" $CONF_DIR/kafka.properties
+fi
 
-# Add listeners
+# Add listener
 LISTENERS="listeners="
 if [[ ${BROKER_SSL_ENABLED} == "true" ]]; then
     LISTENERS="${LISTENERS}${SECURITY_PROTOCOL}://${HOST}:${SSL_PORT},"
 else
     LISTENERS="${LISTENERS}${SECURITY_PROTOCOL}://${HOST}:${PORT},"
 fi
-if [[ ${SECURITY_INTER_BROKER_PROTOCOL} != ${SECURITY_PROTOCOL} ]]; then
+
+# Add inter-broker listener (if needed)
+if [[ ${SECURITY_INTER_BROKER_PROTOCOL} != "INFERRED" && ${SECURITY_INTER_BROKER_PROTOCOL} != ${SECURITY_PROTOCOL} ]]; then
     # Verify SSL or SASL can be set, if included in security.inter.broker.protocol
     if [[ ${SECURITY_INTER_BROKER_PROTOCOL} == *"SSL"* && ${BROKER_SSL_ENABLED} != "true" ]]; then
         echo "security.inter.broker.protocol can not be set to ${SECURITY_INTER_BROKER_PROTOCOL}, as SSL is not enabled on this Kafka broker."
@@ -154,7 +173,6 @@ if [[ ${SECURITY_INTER_BROKER_PROTOCOL} != ${SECURITY_PROTOCOL} ]]; then
         echo "security.inter.broker.protocol can not be set to ${SECURITY_INTER_BROKER_PROTOCOL}, as Kerberos is not enabled on this Kafka broker."
         exit 1
     fi
-
 
     if [[ ${SECURITY_INTER_BROKER_PROTOCOL} == *"SSL"* ]]; then
         LISTENERS="${LISTENERS}${SECURITY_INTER_BROKER_PROTOCOL}://${HOST}:${SSL_PORT},"
@@ -167,17 +185,25 @@ echo "LISTENERS=${LISTENERS}"
 # Replace LISTENERS's placeholder
 perl -pi -e "s#\#listeners={{LISTENERS}}#${LISTENERS}#" $CONF_DIR/kafka.properties
 
-# Propoagating logger information to Kafka
+# Propagating logger information to Kafka
 export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$CONF_DIR/log4j.properties"
 
 # Set LOG_DIR to pwd as this directory exists and hence the underlaying run-kafka-class.sh won't try to create a new directory inside the parcel
 export LOG_DIR=`pwd`
 
 # Set heap size
-export KAFKA_HEAP_OPTS="-Xmx${BROKER_HEAP_SIZE}M"
+if [ -z "$KAFKA_HEAP_OPTS" ]; then
+    export KAFKA_HEAP_OPTS="-Xmx${BROKER_HEAP_SIZE}M"
+else
+    echo "KAFKA_HEAP_OPTS is already set."
+fi
 
 # Set java opts
-export KAFKA_JVM_PERFORMANCE_OPTS="${BROKER_JAVA_OPTS}"
+if [ -z "$KAFKA_JVM_PERFORMANCE_OPTS" ]; then
+    export KAFKA_JVM_PERFORMANCE_OPTS="${CSD_JAVA_OPTS} ${BROKER_JAVA_OPTS}"
+else
+    echo "KAFKA_JVM_PERFORMANCE_OPTS is already set."
+fi
 
 # Set KAFKA_OPTS for security
 if [[ ${KERBEROS_AUTH_ENABLED} == "true" ]]; then

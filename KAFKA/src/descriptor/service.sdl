@@ -103,7 +103,7 @@
     {
       "name": "offsets.topic.num.partitions",
       "label": "Offset Commit Topic Number of Partitions",
-      "description": "The number of partitions for the offset commit topic. Since changing this after deployment is currently unsupported, we recommend using a higher setting for production (for example, 100-200).",
+      "description": "The number of partitions for the offset commit topic. Since changing this after deployment is currently unsupported, Cloudera recommends using a higher setting for production (for example, 100-200).",
       "type": "long",
       "default": 50,
       "min": 1,
@@ -252,7 +252,7 @@
     {
       "name": "log.flush.interval.messages",
       "label": "Log Flush Message Interval",
-      "description": "The number of messages written to a log partition before triggering an fsync on the log. Setting this lower syncs data to disk more often, but has a major impact on performance. We recommend use of replication for durability rather than depending on single-server fsync; however, this setting can be used to be extra certain. If used in conjunction with log.flush.interval.ms, the log is flushed when either criteria is met.",
+      "description": "The number of messages written to a log partition before triggering an fsync on the log. Setting this lower syncs data to disk more often, but has a major impact on performance. Cloudera recommends use of replication for durability rather than depending on single-server fsync; however, this setting can be used to be extra certain. If used in conjunction with log.flush.interval.ms, the log is flushed when either criteria is met.",
       "type": "long",
       "min": 1
     },
@@ -356,6 +356,7 @@
       "name": "KAFKA_BROKER",
       "label": "Kafka Broker",
       "pluralLabel": "Kafka Brokers",
+      "jvmBased": true,
       "uniqueIdParameters": [
         "broker.id"
       ],
@@ -416,9 +417,13 @@
             "filename": "kafka.properties",
             "configFormat": "properties",
             "excludedParams": [
+              "ssl_port",
+              "jmx_port",
+              "security.inter.broker.protocol",
               "monitoring.enabled",
               "kafka.metrics.reporters",
               "zookeeper.chroot",
+              "authenticate.zookeeper.connection",
               "broker_max_heap_size",
               "broker_java_opts",
               "ssl_enabled",
@@ -431,6 +436,18 @@
               "ssl.client.auth"
             ],
             "additionalConfigs" : [
+              {
+                "key" : "#zookeeper.connect",
+                "value" : "{{QUORUM}}"
+              },
+              {
+                "key" : "#kafka.metrics.reporters",
+                "value" : "{{METRIC_REPORTERS}}"
+              },
+              {
+                "key" : "#security.inter.broker.protocol",
+                "value" : "{{SECURITY_INTER_BROKER_PROTOCOL}}"
+              },
               {
                 "key" : "#ssl.configs",
                 "value" : "{{SSL_CONFIGS}}"
@@ -541,10 +558,10 @@
         {
           "name": "security.inter.broker.protocol",
           "label": "Inter Broker Protocol",
-          "description": "Protocol to be used for inter-broker communication.",
+          "description": "Protocol to be used for inter-broker communication. INFERRED will use the same protocol configured for external clients.",
           "type": "string_enum",
-          "validValues" : [ "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL" ],
-          "default": "PLAINTEXT"
+          "validValues" : [ "INFERRED", "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL" ],
+          "default": "INFERRED"
         },
         {
           "name": "authenticate.zookeeper.connection",
@@ -688,6 +705,7 @@
       "name": "KAFKA_MIRROR_MAKER",
       "label": "Kafka MirrorMaker",
       "pluralLabel": "Kafka MirrorMakers",
+      "jvmBased": true,
       "startRunner": {
         "program": "scripts/mirrormaker_control.sh",
         "args": [
@@ -703,6 +721,8 @@
           "QUEUE_SIZE": "${queue.size}",
           "QUEUE_BYTE_SIZE": "${queue.byte.size}",
           "JMX_PORT": "${jmx_port}",
+          "MM_HEAP_SIZE": "${mirror_maker_max_heap_size}",
+          "MM_JAVA_OPTS": "${mirror_maker_java_opts}",
           "ABORT_ON_SEND_FAILURE": "${abort.on.send.failure}",
           "OFFSET_COMMIT_INTERVAL_MS": "${offset.commit.interval.ms}",
           "CONSUMER_REBALANCE_LISTENER": "${consumer.rebalance.listener}",
@@ -976,6 +996,25 @@
           "description": "Only required if destination Kafka cluster requires client authentication.",
           "type": "boolean",
           "default": false
+        },
+        {
+          "name": "mirror_maker_max_heap_size",
+          "label": "Java Heap Size of MirrorMaker",
+          "description": "Maximum size for the Java process heap memory. Passed to Java -Xmx. Measured in megabytes.",
+          "type": "memory",
+          "default": 1024,
+          "min": 50,
+          "softMin": 256,
+          "softMax": 16384,
+          "unit": "megabytes",
+          "scaleFactor" : 1.3
+        },
+        {
+          "name": "mirror_maker_java_opts",
+          "label": "Additional MirrorMaker Java Options",
+          "description": "These arguments are passed as part of the Java command line. Commonly, garbage collection flags or extra debugging flags are passed here.",
+          "type": "string",
+          "default": "-server -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSScavengeBeforeRemark -XX:+DisableExplicitGC -Djava.awt.headless=true"
         }
       ]
     }

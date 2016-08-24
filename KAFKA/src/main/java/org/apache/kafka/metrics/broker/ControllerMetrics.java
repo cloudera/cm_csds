@@ -47,7 +47,7 @@ class ControllerMetrics {
             new CodahaleMetric.Builder()
                     .setName("unclean_leader_elections")
                     .setLabel("Unclean Leader Elections")
-                    .setDescription("Unclean leader elections. We recommend disabling unclean leader elections, " +
+                    .setDescription("Unclean leader elections. Cloudera recommends disabling unclean leader elections, " +
                             "to avoid potential data loss, so this should be 0")
                     .setNumerator(UnitConstants.elections)
                     .setDenominator(UnitConstants.second)

@@ -20,6 +20,10 @@
 # for debugging
 set -x
 
+DEFAULT_KAFKA_HOME=/usr/lib/kafka
+KAFKA_HOME=${KAFKA_HOME:-$DEFAULT_KAFKA_HOME}
+MIN_REFACTORED_MIRROR_MAKER_VERSION=2
+
 # For better debugging
 echo ""
 echo "Date: `date`"
@@ -27,15 +31,18 @@ echo "Host: `hostname -f`"
 echo "Pwd: `pwd`"
 echo "CONF_DIR: $CONF_DIR"
 echo "KAFKA_HOME: $KAFKA_HOME"
-echo "Zoookeper Quorum: $ZK_QUORUM"
-echo "Chroot: $CHROOT"
+echo "Zookeeper Quorum: $ZK_QUORUM"
+echo "Zookeeper Chroot: $CHROOT"
 echo "no.data.loss: ${NO_DATA_LOSS}"
 echo "whitelist: ${WHITELIST}"
 echo "blacklist: ${BLACKLIST}"
 echo "num.producers: ${NUM_PRODUCERS}"
 echo "num.streams: ${NUM_STREAMS}"
 echo "queue.size: ${QUEUE_SIZE}"
+echo "queue.byte.size: ${QUEUE_BYTE_SIZE}"
 echo "JMX_PORT: $JMX_PORT"
+echo "MM_HEAP_SIZE: ${MM_HEAP_SIZE}"
+echo "MM_JAVA_OPTS: ${MM_JAVA_OPTS}"
 echo "abort.on.send.failure: ${ABORT_ON_SEND_FAILURE}"
 echo "offset.commit.interval.ms: ${OFFSET_COMMIT_INTERVAL_MS}"
 echo "consumer.rebalance.listener: ${CONSUMER_REBALANCE_LISTENER}"
@@ -48,7 +55,6 @@ echo "KAFKA_MIRROR_MAKER_PRINCIPAL: ${KAFKA_MIRROR_MAKER_PRINCIPAL}"
 echo "SOURCE_SSL_CLIENT_AUTH: ${SOURCE_SSL_CLIENT_AUTH}"
 echo "DESTINATION_SSL_CLIENT_AUTH: ${DESTINATION_SSL_CLIENT_AUTH}"
 
-MIN_REFACTORED_MIRROR_MAKER_VERSION=2
 KAFKA_VERSION=$(grep "^version=" $KAFKA_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
 KAFKA_MAJOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 1)
 echo "Kafka version found: ${KAFKA_VERSION}"
@@ -132,6 +138,9 @@ ${SSL_SERVER_CONFIGS}"
         # Replace SSL_CONFIGS's placeholder
         perl -pi -e "s#\#ssl.configs={{SSL_CONFIGS}}#${SSL_CONFIGS}#" $CONF_DIR/mirror_maker_consumers.properties
         set -x
+    else
+        # Remove SSL_CONFIGS's placeholder
+        perl -pi -e "s#\#ssl.configs={{SSL_CONFIGS}}##" $CONF_DIR/mirror_maker_consumers.properties
     fi
 
     if [[ ${DESTINATION_SECURITY_PROTOCOL} == *"SSL"* ]]; then
@@ -144,9 +153,12 @@ ${SSL_SERVER_CONFIGS}"
 ${SSL_SERVER_CONFIGS}"
         fi
 
-        # If user has not provided safety valve, replace SSL_CONFIGS's placeholder
+        # Replace SSL_CONFIGS's placeholder
         perl -pi -e "s#\#ssl.configs={{SSL_CONFIGS}}#${SSL_CONFIGS}#" $CONF_DIR/mirror_maker_producers.properties
         set -x
+    else
+        # Remove SSL_CONFIGS's placeholder
+        perl -pi -e "s#\#ssl.configs={{SSL_CONFIGS}}##" $CONF_DIR/mirror_maker_producers.properties
     fi
 
     if [[ ${SOURCE_SECURITY_PROTOCOL} == *"SASL"* || ${DESTINATION_SECURITY_PROTOCOL} == *"SASL"* ]]; then
@@ -166,11 +178,25 @@ ${SSL_SERVER_CONFIGS}"
     fi
 fi
 
-# Propoagating logger information to Kafka
+# Propagating logger information to Kafka
 export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$CONF_DIR/log4j.properties"
 
 # Set LOG_DIR to pwd as this directory exists and hence the underlaying run-kafka-class.sh won't try to create a new directory inside the parcel
 export LOG_DIR=`pwd`
+
+# Set heap size
+if [ -z "$KAFKA_HEAP_OPTS" ]; then
+    export KAFKA_HEAP_OPTS="-Xmx${MM_HEAP_SIZE}M"
+else
+    echo "KAFKA_HEAP_OPTS is already set."
+fi
+
+# Set java opts
+if [ -z "$KAFKA_JVM_PERFORMANCE_OPTS" ]; then
+    export KAFKA_JVM_PERFORMANCE_OPTS="${CSD_JAVA_OPTS} ${MM_JAVA_OPTS}"
+else
+    echo "KAFKA_JVM_PERFORMANCE_OPTS is already set."
+fi
 
 # And finally run Kafka MirrorMaker itself
 if [[ $KAFKA_MAJOR_VERSION < $MIN_REFACTORED_MIRROR_MAKER_VERSION ]]; then
