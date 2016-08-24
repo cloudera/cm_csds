@@ -2,7 +2,7 @@
   "name" : "KMS",
   "label" : "Java KeyStore KMS",
   "description" : "The Hadoop Key Management Service with file-based Java KeyStore. Maintains a single copy of keys, using simple password-based protection. Requires CDH 5.3+. <span class=\"error\">Not recommended for production use.</span>",
-  "version" : "5.7.0",
+  "version" : "5.8.0",
   "runAs" : {
     "user" : "kms",
     "group" : "kms"
