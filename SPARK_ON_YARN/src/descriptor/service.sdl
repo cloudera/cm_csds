@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.7.0",
+  "version" : "5.8.0",
   "compatibility" : { "cdhVersion" : { "min" : "5.5.0" } },
   "runAs" : {
     "user" : "spark",
@@ -430,7 +430,7 @@
       }
     },
     "logging" : {
-      "configFilename" : "log4j.properties",
+      "configFilename" : "spark-conf/log4j.properties",
       "loggingType" : "log4j",
       "additionalConfigs" : [
         { "key" : "log4j.logger.org.apache.spark.repl.Main", "value" : "${spark_gateway_shell_logging_threshold}" },
@@ -477,7 +477,7 @@
       ],
       "peerConfigGenerators" : [
         {
-          "filename" : "history.properties",
+          "filename" : "spark-conf/history.properties",
           "params" : ["history_server_web_port"],
           "roleName" : "SPARK_YARN_HISTORY_SERVER"
         }

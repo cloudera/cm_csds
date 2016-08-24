@@ -39,14 +39,23 @@ export BIGTOP_DEFAULTS_DIR=""
 export HADOOP_HOME=${HADOOP_HOME:-$(readlink -m "$CDH_HADOOP_HOME")}
 export HDFS_BIN=$HADOOP_HOME/../../bin/hdfs
 
-export HADOOP_CONF_DIR="$CONF_DIR/yarn-conf"
-if [ ! -d "$HADOOP_CONF_DIR" ]; then
+USE_EMPTY_DEFAULT_FS=0
+if [ -d "$CONF_DIR/yarn-conf" ]; then
+  HADOOP_CONF_DIR="$CONF_DIR/yarn-conf"
+elif [ -d "$CONF_DIR/hadoop-conf" ]; then
   HADOOP_CONF_DIR="$CONF_DIR/hadoop-conf"
-  if [ ! -d "$HADOOP_CONF_DIR" ]; then
-    log "No Hadoop configuration found."
-    exit 1
-  fi
+else
+  # No YARN nor HDFS, so create an empty directory just so that
+  # the commands we run can work. On top of that, when reading
+  # fs.defaultFS with an empty config, it contains a leading slash
+  # which makes the final URL of the event log directory invalid,
+  # so we override that with a default value.
+  mkdir "$CONF_DIR/empty-hadoop-conf"
+  HADOOP_CONF_DIR="$CONF_DIR/empty-hadoop-conf"
+  USE_EMPTY_DEFAULT_FS=1
 fi
+export HADOOP_CONF_DIR
+export USE_EMPTY_DEFAULT_FS
 
 # If SPARK_HOME is not set, make it the default
 DEFAULT_SPARK_HOME=/usr/lib/spark
@@ -63,11 +72,6 @@ fi
 export SPARK_ENV="$SPARK_CONF_DIR/spark-env.sh"
 export SPARK_DEFAULTS="$SPARK_CONF_DIR/spark-defaults.conf"
 
-# Copy the log4j directory to the config directory if it exists.
-if [ -f $CONF_DIR/log4j.properties ]; then
-  cp "$CONF_DIR/log4j.properties" "$SPARK_CONF_DIR"
-fi
-
 # Set JAVA_OPTS for the daemons
 # sets preference to IPV4
 export SPARK_DAEMON_JAVA_OPTS="$SPARK_DAEMON_JAVA_OPTS -Djava.net.preferIPv4Stack=true"
@@ -83,7 +87,11 @@ function readconf {
 }
 
 function get_default_fs {
-  "$HDFS_BIN" --config $1 getconf -confKey fs.defaultFS
+  if [ $USE_EMPTY_DEFAULT_FS == 0 ]; then
+    "$HDFS_BIN" --config $1 getconf -confKey fs.defaultFS
+  else
+    echo ""
+  fi
 }
 
 # replace $1 with $2 in file $3
@@ -170,8 +178,11 @@ function prepare_spark_env {
   replace "{{SPARK_EXTRA_LIB_PATH}}" "$SPARK_LIBRARY_PATH" $SPARK_ENV
   replace "{{SPARK_JAR_HDFS_PATH}}" "$SPARK_JAR" $SPARK_ENV
   replace "{{MASTER_PORT}}" "$MASTER_PORT" $SPARK_ENV
-  replace "{{PYTHON_PATH}}" "$PYTHON_PATH" ""$SPARK_ENV""
+  replace "{{PYTHON_PATH}}" "$PYTHON_PATH" $SPARK_ENV
   replace "{{CDH_PYTHON}}" "$CDH_PYTHON" $SPARK_ENV
+
+  local HADOOP_CONF_DIR_NAME=$(basename "$HADOOP_CONF_DIR")
+  replace "{{HADOOP_CONF_DIR_NAME}}" "$HADOOP_CONF_DIR_NAME" $SPARK_ENV
 
   # Create a classpath.txt file with all the entries that should be in Spark's classpath.
   # The classpath is expanded so that we can de-duplicate entries, to avoid having the JVM
@@ -254,7 +265,8 @@ function run_spark_class {
 function start_history_server {
   log "Starting Spark History Server"
   local CONF_FILE="$CONF_DIR/spark-history-server.conf"
-  local LOG_DIR="$(get_default_fs $HADOOP_CONF_DIR)$HISTORY_LOG_DIR"
+  local DEFAULT_FS=$(get_default_fs $HADOOP_CONF_DIR)
+  local LOG_DIR=$(prepend_protocol "$HISTORY_LOG_DIR" "$DEFAULT_FS")
   if [ -f "$CONF_FILE" ]; then
     echo "spark.history.fs.logDirectory=$LOG_DIR" >> "$CONF_FILE"
 
@@ -317,7 +329,7 @@ function deploy_client_config {
 
   # If a history server is configured, set its address in the default config file so that
   # the Yarn RM web ui links to the history server for Spark apps.
-  HISTORY_PROPS="$CONF_DIR/history.properties"
+  HISTORY_PROPS="$SPARK_CONF_DIR/history.properties"
   HISTORY_HOST=
   if [ -f "$HISTORY_PROPS" ]; then
     for line in $(cat "$HISTORY_PROPS")
@@ -334,6 +346,7 @@ function deploy_client_config {
       echo "spark.yarn.historyServer.address=http://$HISTORY_HOST:$HISTORY_PORT" >> \
         "$SPARK_DEFAULTS"
     fi
+    rm "$HISTORY_PROPS"
   fi
 
   if [ $CDH_VERSION -ge 5 ]; then
