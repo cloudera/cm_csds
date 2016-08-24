@@ -2,7 +2,7 @@
   "name" : "KEYTRUSTEE",
   "label" : "Key Trustee KMS",
   "description" : "The Hadoop Key Management Service backed by Cloudera Navigator Key Trustee Server for enterprise-grade key storage and protection. Requires CDH 5.3+ and existing Key Trustee Servers. <span class=\"error\">Before adding this service, ensure that you have installed the Key Trustee binaries, which are not included in CDH.</span>",
-  "version" : "5.7.0",
+  "version" : "5.8.0",
   "licenseFeature" : "KEYTRUSTEE",
   "runAs" : {
     "user" : "kms",
@@ -25,9 +25,24 @@
     "secureUrl" : "https://${host}:${kms_http_port}/kms",
     "loadBalancerUrl" : "${kms_load_balancer}"
   },
+  "commands": [
+    {
+      "name": "Backup",
+      "label": "Create Backup",
+      "description": "Create a one-time backup of the Key Trustee KMS client keys. The backup is stored in the Keytrustee configuration directory.",
+      "roleName": "KMS_KEYTRUSTEE",
+      "roleCommand": "backup",
+      "runMode": "all"
+    }
+  ],
   "parcel": {
     "requiredTags" : ["keytrustee", "cdh"],
     "repoUrl" : "https://archive.cloudera.com/navigator-keytrustee5/parcels/latest/"
+  },
+  "serviceInit": {
+    "postStartSteps" : [
+      { "commandName" : "Backup" }
+    ]
   },
   "serviceDependencies" : [
     {
@@ -69,9 +84,8 @@
        "name" : "kms_load_balancer",
        "label" : "KMS Load Balancer",
        "description" : "Key Management Store Load Balancer, used with multiple KMS roles (KMS high availability). In CDH 5.4 and higher, this Key Trustee KMS service typically has the ZooKeeper dependency set, and this property is left blank. In this case, the ZooKeeper-based high availability URL is automatically generated for clients. To use an external load balancer, specify the URL to that load balancer. When using the ZooKeeper-based load balancer, all KMS roles must listen on the same port.",
-       "type" : "uri_array",
-       "separator" : ";",
-       "default" : []
+       "type" : "uri",
+       "default" : ""
     }
   ],
   "roles" : [
@@ -263,7 +277,7 @@
           "label" : "Key Trustee Server Round Robin Reads",
           "description" : "Distribute read requests amongst the available Key Trustee Servers. Only effective when a passive server is specified.",
           "required" : "false",
-          "default" : "false",
+          "default" : "true",
           "configName" : "cloudera.trustee.keyprovider.roundrobin",
           "type" : "boolean",
           "configurableInWizard" : false
@@ -623,7 +637,23 @@
             "includedParams": []
           }
         ]
-      }
+      },
+      "commands": [
+        {
+          "name": "backup",
+          "label": "Create Backup",
+          "description": "Create a one-time backup of the Key Trustee KMS client keys. The backup is stored in the Keytrustee configuration directory.",
+          "expectedExitCodes": [ 0 ],
+          "requiredRoleState": "running",
+          "commandRunner": {
+            "program": "scripts/control.sh",
+            "args": [ "backup" ],
+            "environmentVariables": {
+              "KMS_CONFDIR": "${keytrustee_security_key_provider_conf_dir}"
+            }
+          }
+        }
+      ]
     }
   ],
   "rollingRestart" : {

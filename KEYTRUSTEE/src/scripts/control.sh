@@ -159,6 +159,14 @@ case $CMD in
         cmd="${KMS_HOME}/sbin/kms.sh run"
         exec ${cmd}
         ;;
+    (backup)
+        if [ -f $KMS_PLUGIN_DIR/../../bin/ktbackup.sh ]; then
+            cmd="${KMS_PLUGIN_DIR}/../../bin/ktbackup.sh  --cleartext --confdir=${KMS_CONFDIR}/.keytrustee --output=${KMS_CONFDIR}/.."
+            exec ${cmd}
+        else
+            echo " The backup script does not exist. Will not be taking the backup."
+        fi
+        ;;
     (*)
         echo "Unknown command ${CMD}"
         exit 1
