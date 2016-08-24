@@ -17,7 +17,7 @@
   "name" : "SPARK",
   "label" : "Spark (Standalone)",
   "description" : "Apache Spark is an open source cluster computing system. This is the standalone version of the service which does not use YARN for resource management. Cloudera recommends using Spark on YARN instead of this standalone version.",
-  "version" : "5.7.0",
+  "version" : "5.8.0",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
@@ -115,7 +115,6 @@
         "program" : "scripts/control.sh",
         "args" : [ "start_master" ],
         "environmentVariables" : {
-          "MASTER_FILE" : "master.properties",
           "SPARK_DAEMON_MEMORY" : "${master_max_heapsize}",
           "SPARK_IDENT_STRING" : "${user}",
           "SPARK_MASTER_PORT" : "${master_port}",
@@ -204,7 +203,7 @@
       "configWriter" : {
         "peerConfigGenerators" : [
           {
-            "filename" : "master.properties",
+            "filename" : "spark-conf/master.properties",
             "params" : [ "master_address", "master_port" ],
             "roleName" : "SPARK_MASTER"
           }
@@ -226,7 +225,6 @@
         "program" : "scripts/control.sh",
         "args" : [ "start_worker" ],
         "environmentVariables" : {
-          "MASTER_FILE" : "master.properties",
           "SPARK_DAEMON_MEMORY" : "${worker_max_heapsize}",
           "SPARK_IDENT_STRING" : "${user}",
           "SPARK_WORKER_PORT" : "${worker_port}",
@@ -314,7 +312,7 @@
       "configWriter" : {
         "peerConfigGenerators" : [
           {
-            "filename" : "master.properties",
+            "filename" : "spark-conf/master.properties",
             "params" : [ "master_address", "master_port" ],
             "roleName" : "SPARK_MASTER"
           }
@@ -424,13 +422,12 @@
       "program" : "scripts/control.sh",
       "args" : [ "client" ],
       "environmentVariables" : {
-        "MASTER_FILE" : "master.properties",
         "SPARK_JAR" : "${spark_jar_hdfs_path}",
         "PYTHON_PATH" : "${spark_python_path}"
       }
     },
     "logging" : {
-      "configFilename" : "log4j.properties",
+      "configFilename" : "spark-conf/log4j.properties",
       "loggingType" : "log4j",
       "additionalConfigs" : [
         { "key" : "log4j.logger.org.eclipse.jetty", "value" : "WARN" },
@@ -463,12 +460,12 @@
       ],
       "peerConfigGenerators" : [
         {
-          "filename" : "master.properties",
+          "filename" : "spark-conf/master.properties",
           "params" : [ "master_address", "master_port" ],
           "roleName" : "SPARK_MASTER"
         },
         {
-          "filename" : "history.properties",
+          "filename" : "spark-conf/history.properties",
           "params" : ["history_server_web_port"],
           "roleName" : "SPARK_HISTORY_SERVER"
         }

@@ -19,7 +19,7 @@
 
 . $(cd $(dirname $0) && pwd)/common.sh
 
-MASTER_FILE="$CONF_DIR/$MASTER_FILE"
+MASTER_FILE="$CONF_DIR/spark-conf/master.properties"
 
 ### Let's run everything with JVM runtime, instead of Scala
 export SPARK_LAUNCH_WITH_SCALA=0
@@ -52,6 +52,7 @@ if [ -f $MASTER_FILE ]; then
     esac
   done
   log "Found a master on $MASTER_IP listening on port $MASTER_PORT"
+  rm "$MASTER_FILE"
 fi
 
 case $1 in
