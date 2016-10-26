@@ -17,7 +17,7 @@
   "name" : "SPARK",
   "label" : "Spark (Standalone)",
   "description" : "Apache Spark is an open source cluster computing system. This is the standalone version of the service which does not use YARN for resource management. Cloudera recommends using Spark on YARN instead of this standalone version.",
-  "version" : "5.8.0",
+  "version" : "5.9.1",
   "runAs" : {
     "user" : "spark",
     "group" : "spark"
@@ -416,6 +416,15 @@
         "pathType" : "serviceSpecific",
         "separator" : ":",
         "default" : [ ]
+      },
+      {
+        "name" : "spark_gateway_ui_kill_enabled",
+        "label" : "Enable Kill From UI",
+        "description" : "Whether to allow users to kill running stages from the Spark Web UI.",
+        "configName" : "spark.ui.killEnabled",
+        "required" : "true",
+        "type" : "boolean",
+        "default" : true
       }
     ],
     "scriptRunner" : {
@@ -448,7 +457,8 @@
           "configFormat" : "properties",
           "includedParams" : [
             "spark_history_enabled",
-            "spark_history_log_dir"
+            "spark_history_log_dir",
+            "spark_gateway_ui_kill_enabled"
           ]
         }
       ],

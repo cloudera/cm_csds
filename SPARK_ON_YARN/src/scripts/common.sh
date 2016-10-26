@@ -39,7 +39,7 @@ export BIGTOP_DEFAULTS_DIR=""
 export HADOOP_HOME=${HADOOP_HOME:-$(readlink -m "$CDH_HADOOP_HOME")}
 export HDFS_BIN=$HADOOP_HOME/../../bin/hdfs
 
-USE_EMPTY_DEFAULT_FS=0
+HAS_HDFS_CONFIG=1
 if [ -d "$CONF_DIR/yarn-conf" ]; then
   HADOOP_CONF_DIR="$CONF_DIR/yarn-conf"
 elif [ -d "$CONF_DIR/hadoop-conf" ]; then
@@ -52,7 +52,7 @@ else
   # so we override that with a default value.
   mkdir "$CONF_DIR/empty-hadoop-conf"
   HADOOP_CONF_DIR="$CONF_DIR/empty-hadoop-conf"
-  USE_EMPTY_DEFAULT_FS=1
+  HAS_HDFS_CONFIG=0
 fi
 export HADOOP_CONF_DIR
 export USE_EMPTY_DEFAULT_FS
@@ -66,6 +66,11 @@ export SPARK_HOME=${SPARK_HOME:-$DEFAULT_SPARK_HOME}
 export SPARK_CONF_DIR="$CONF_DIR/spark-conf"
 if [ ! -d "$SPARK_CONF_DIR" ]; then
   mkdir "$SPARK_CONF_DIR"
+fi
+
+# Fixing CHD-42916
+if [ -f $CONF_DIR/log4j.properties ]; then
+  cp "$CONF_DIR/log4j.properties" "$SPARK_CONF_DIR"
 fi
 
 # Variables used when generating configs.
@@ -86,13 +91,20 @@ function readconf {
   IFS='=' read key value <<< "$conf"
 }
 
-function get_default_fs {
-  if [ $USE_EMPTY_DEFAULT_FS == 0 ]; then
-    "$HDFS_BIN" --config $1 getconf -confKey fs.defaultFS
+function get_hadoop_conf {
+  local conf="$1"
+  local key="$2"
+  if [ $HAS_HDFS_CONFIG == 1 ]; then
+    "$HDFS_BIN" --config "$conf" getconf -confKey "$key"
   else
     echo ""
   fi
 }
+
+function get_default_fs {
+  get_hadoop_conf "$1" "fs.defaultFS"
+}
+
 
 # replace $1 with $2 in file $3
 function replace {
@@ -251,6 +263,13 @@ function find_local_spark_jar {
   fi
 }
 
+# Check whether the given config key ($1) exists in the given conf file ($2).
+function has_config {
+  local key="$1"
+  local file="$2"
+  grep -q "^$key=" "$file"
+}
+
 function run_spark_class {
   local ARGS=($@)
   ARGS+=($ADDITIONAL_ARGS)
@@ -264,7 +283,7 @@ function run_spark_class {
 
 function start_history_server {
   log "Starting Spark History Server"
-  local CONF_FILE="$CONF_DIR/spark-history-server.conf"
+  local CONF_FILE="$SPARK_CONF_DIR/spark-history-server.conf"
   local DEFAULT_FS=$(get_default_fs $HADOOP_CONF_DIR)
   local LOG_DIR=$(prepend_protocol "$HISTORY_LOG_DIR" "$DEFAULT_FS")
   if [ -f "$CONF_FILE" ]; then
@@ -301,7 +320,10 @@ function deploy_client_config {
   fi
 
   # Move the Yarn configuration under the Spark config. Do not overwrite Spark's log4j config.
-  HADOOP_CLIENT_CONF_DIR="$SPARK_CONF_DIR/$(basename $HADOOP_CONF_DIR)"
+  HADOOP_CONF_NAME=$(basename "$HADOOP_CONF_DIR")
+  HADOOP_CLIENT_CONF_DIR="$SPARK_CONF_DIR/$HADOOP_CONF_NAME"
+  TARGET_HADOOP_CONF_DIR="$DEST_PATH/$HADOOP_CONF_NAME"
+
   mkdir "$HADOOP_CLIENT_CONF_DIR"
   for i in "$HADOOP_CONF_DIR"/*; do
     if [ $(basename "$i") != log4j.properties ]; then
@@ -312,6 +334,7 @@ function deploy_client_config {
       replace "{{CDH_MR2_HOME}}" "$CDH_MR2_HOME" "$target"
       replace "{{HADOOP_CLASSPATH}}" "$HADOOP_CLASSPATH" "$target"
       replace "{{JAVA_LIBRARY_PATH}}" "" "$target"
+      replace "{{CMF_CONF_DIR}}" "$TARGET_HADOOP_CONF_DIR" "$target"
     fi
   done
 
@@ -389,6 +412,39 @@ function deploy_client_config {
   if [ -n "$CDH_PYTHON" ]; then
     echo "spark.yarn.appMasterEnv.PYSPARK_PYTHON=$CDH_PYTHON" >> "$SPARK_DEFAULTS"
     echo "spark.yarn.appMasterEnv.PYSPARK_DRIVER_PYTHON=$CDH_PYTHON" >> "$SPARK_DEFAULTS"
+  fi
+
+  # Modify the YARN configuration to use the topology script from Spark's config directory.
+  # Also need to manually fix the permissions so that the script is executable.
+  # If the config doesn't exist (e.g. for standalone, which depends on HDFS and not YARN),
+  # we need to add the "|| true" hack to avoid an error in the caller (because of set -e).
+  OLD_TOPOLOGY_SCRIPT=$(get_hadoop_conf "$HADOOP_CLIENT_CONF_DIR" "net.topology.script.file.name" || true)
+  if [ -n "$OLD_TOPOLOGY_SCRIPT" ]; then
+    SCRIPT_NAME=$(basename "$OLD_TOPOLOGY_SCRIPT")
+    NEW_TOPOLOGY_SCRIPT="$TARGET_HADOOP_CONF_DIR/$SCRIPT_NAME"
+    CORE_SITE="$HADOOP_CLIENT_CONF_DIR/core-site.xml"
+    chmod 755 "$HADOOP_CLIENT_CONF_DIR/$SCRIPT_NAME"
+    sed "s,$OLD_TOPOLOGY_SCRIPT,$NEW_TOPOLOGY_SCRIPT," "$CORE_SITE" > "$CORE_SITE.tmp"
+    mv "$CORE_SITE.tmp" "$CORE_SITE"
+  fi
+
+  # These values cannot be declared in the descriptor, since the CSD framework will
+  # treat them as config references and fail. So add them here unless they've already
+  # been set by the user in the safety valve.
+  #
+  # Furthermore, because only a few versions of Spark support this feature, check whether
+  # the "shell.log.level" property has been set in the logging configuration before adding
+  # the new ones.
+  LOG_CONFIG="$SPARK_CONF_DIR/log4j.properties"
+  if has_config "shell.log.level" "$LOG_CONFIG"; then
+    SHELL_CLASSES=("org.apache.spark.repl.Main"
+      "org.apache.spark.api.python.PythonGatewayServer")
+    for class in "${SHELL_CLASSES[@]}"; do
+      key="log4j.logger.$class"
+      if ! has_config "$key" "$LOG_CONFIG"; then
+        echo "$key=\${shell.log.level}" >> "$LOG_CONFIG"
+      fi
+    done
   fi
 }
 

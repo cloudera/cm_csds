@@ -15,9 +15,9 @@
 // limitations under the License.
 {
   "name" : "ACCUMULO",
-  "label" : "Accumulo",
-  "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system.",
-  "version" : "5.8.0",
+  "label" : "Accumulo 1.4",
+  "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system. This service only work with releases based on Apache Accumulo 1.4.",
+  "version" : "5.9.1",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "4" } },
   "runAs" : {
     "user" : "accumulo",

@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.8.0",
+  "version" : "5.9.1",
   "compatibility" : { "cdhVersion" : { "min" : "5", "max" : "5.4" } },
   "runAs" : {
     "user" : "spark",
@@ -224,6 +224,15 @@
         "pathType" : "serviceSpecific",
         "separator" : ":",
         "default" : [ ]
+      },
+      {
+        "name" : "spark_gateway_ui_kill_enabled",
+        "label" : "Enable Kill From UI",
+        "description" : "Whether to allow users to kill running stages from the Spark Web UI.",
+        "configName" : "spark.ui.killEnabled",
+        "required" : "true",
+        "type" : "boolean",
+        "default" : true
       }
     ],
     "scriptRunner" : {
@@ -258,7 +267,8 @@
           "includedParams" : [
             "spark_history_enabled",
             "spark_history_log_dir",
-            "spark_data_serializer"
+            "spark_data_serializer",
+            "spark_gateway_ui_kill_enabled"
           ]
         }
       ],

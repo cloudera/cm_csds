@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.8.0",
+  "version" : "5.9.1",
   "compatibility" : { "cdhVersion" : { "min" : "5.4.0", "max" : "5.5" } },
   "runAs" : {
     "user" : "spark",
@@ -227,12 +227,18 @@
       "configWriter" : {
         "generators" : [
           {
-            "filename" : "spark-history-server.conf",
+            "filename" : "spark-conf/spark-history-server.conf",
             "configFormat" : "properties",
             "includedParams" : [
               "history_server_web_port",
               "history_server_retained_apps",
               "history_server_fs_poll_interval"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "spark.port.maxRetries",
+                "value" : "0"
+              }
             ]
           }
         ],
@@ -377,6 +383,15 @@
         "type" : "long",
         "unit" : "seconds",
         "min" : 0
+      },
+      {
+        "name" : "spark_gateway_ui_kill_enabled",
+        "label" : "Enable Kill From UI",
+        "description" : "Whether to allow users to kill running stages from the Spark Web UI.",
+        "configName" : "spark.ui.killEnabled",
+        "required" : "true",
+        "type" : "boolean",
+        "default" : true
       }
     ],
     "scriptRunner" : {
@@ -422,7 +437,8 @@
             "spark_dynamic_allocation_idle_timeout",
             "spark_dynamic_allocation_cached_idle_timeout",
             "spark_dynamic_allocation_scheduler_backlog_timeout",
-            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout"
+            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout",
+            "spark_gateway_ui_kill_enabled"
           ]
         }
       ],

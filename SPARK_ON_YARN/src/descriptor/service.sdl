@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.8.0",
+  "version" : "5.9.1",
   "compatibility" : { "cdhVersion" : { "min" : "5.5.0" } },
   "runAs" : {
     "user" : "spark",
@@ -117,7 +117,7 @@
     {
       "name" : "spark_shuffle_service_port",
       "label" : "Spark Shuffle Service Port",
-      "description" : "The port the Spark Shuffle Service listens for fetch requests.",
+      "description" : "The port the Spark Shuffle Service listens for fetch requests. If using Spark2, ensure that value of this property is the same in both services.",
       "configName" : "spark.shuffle.service.port",
       "default" : 7337,
       "type" : "port",
@@ -126,7 +126,7 @@
     {
       "name" : "spark_authenticate",
       "label" : "Spark Authentication",
-      "description" : "Enable whether the Spark communication protocols do authentication using a shared secret.",
+      "description" : "Enable whether the Spark communication protocols do authentication using a shared secret. If using Spark2, ensure that value of this property is the same in both services.",
       "configName" : "spark.authenticate",
       "required" : "true",
       "type" : "boolean",
@@ -256,7 +256,7 @@
       "configWriter" : {
         "generators" : [
           {
-            "filename" : "spark-history-server.conf",
+            "filename" : "spark-conf/spark-history-server.conf",
             "configFormat" : "properties",
             "includedParams" : [
               "history_server_web_port",
@@ -265,6 +265,12 @@
               "event_log_cleaner_enabled",
               "event_log_cleaner_interval",
               "event_log_cleaner_max_age"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "spark.port.maxRetries",
+                "value" : "0"
+              }
             ]
           }
         ],
@@ -418,6 +424,15 @@
         "type" : "string_enum",
         "validValues" : [ "TRACE", "DEBUG", "INFO", "WARN", "ERROR",  "FATAL" ],
         "default" : "WARN"
+      },
+      {
+        "name" : "spark_gateway_ui_kill_enabled",
+        "label" : "Enable Kill From UI",
+        "description" : "Whether to allow users to kill running stages from the Spark Web UI.",
+        "configName" : "spark.ui.killEnabled",
+        "required" : "true",
+        "type" : "boolean",
+        "default" : true
       }
     ],
     "scriptRunner" : {
@@ -433,7 +448,7 @@
       "configFilename" : "spark-conf/log4j.properties",
       "loggingType" : "log4j",
       "additionalConfigs" : [
-        { "key" : "log4j.logger.org.apache.spark.repl.Main", "value" : "${spark_gateway_shell_logging_threshold}" },
+        { "key" : "shell.log.level", "value" : "${spark_gateway_shell_logging_threshold}" },
 
         { "key" : "log4j.logger.org.eclipse.jetty", "value" : "WARN" },
         { "key" : "log4j.logger.org.spark-project.jetty", "value" : "WARN" },
@@ -465,7 +480,8 @@
             "spark_dynamic_allocation_idle_timeout",
             "spark_dynamic_allocation_cached_idle_timeout",
             "spark_dynamic_allocation_scheduler_backlog_timeout",
-            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout"
+            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout",
+            "spark_gateway_ui_kill_enabled"
           ]
         }
       ],

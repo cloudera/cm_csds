@@ -41,8 +41,13 @@
     {
       "name": "ZOOKEEPER",
       "required": "true"
+    },
+    {
+      "name": "SENTRY",
+      "required": "false"
     }
   ],
+  "inExpressWizard": true,
   "kerberos" : "${kerberos.auth.enable}",
   "parameters": [
     {
@@ -349,6 +354,31 @@
         "nl.techop.kafka.KafkaHttpMetricsReporter"
       ],
       "minLength": 1
+    },
+    {
+      "name": "sentry.kafka.caching.enable",
+      "label": "Enable Sentry Privileges Caching",
+      "description": "Enables Sentry privileges caching. Only applicable if authorization via Sentry is enabled.",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "sentry.kafka.caching.ttl.ms",
+      "label": "Sentry Privileges Cache Refresh Interval",
+      "description": "The amount of time between updates of the Sentry privileges cache. Any change in role or privilege can take up to the specified time for changes to reflect in the cache.",
+      "type": "long",
+      "default": 30000,
+      "min": 1,
+      "unit": "milliseconds"
+    },
+    {
+      "name": "sentry.kafka.caching.update.failures.count",
+      "label": "Sentry Privileges Cache Maximum Update Failures",
+      "description": "If Sentry privileges cache fails to update for specified number of times, all authorization requests will be denied.",
+      "type": "long",
+      "default": 3,
+      "min": 1,
+      "max": 2147483647
     }
   ],
   "roles": [
@@ -378,7 +408,8 @@
           "BROKER_SSL_ENABLED" : "${ssl_enabled}",
           "KERBEROS_AUTH_ENABLED" : "${kerberos.auth.enable}",
           "SECURITY_INTER_BROKER_PROTOCOL" : "${security.inter.broker.protocol}",
-          "AUTHENTICATE_ZOOKEEPER_CONNECTION": "${authenticate.zookeeper.connection}"
+          "AUTHENTICATE_ZOOKEEPER_CONNECTION": "${authenticate.zookeeper.connection}",
+          "SUPER_USERS": "${super.users}"
         }
       },
       "kerberosPrincipals" : [
@@ -406,7 +437,7 @@
       },
       "logging": {
         "dir": "/var/log/kafka",
-        "filename": "server.log",
+        "filename": "kafka-broker-${host}.log",
         "modifiable": true,
         "configName": "kafka.log4j.dir",
         "loggingType": "log4j"
@@ -433,7 +464,8 @@
               "ssl_server_keystore_password",
               "ssl_server_keystore_keypassword",
               "ssl_client_truststore_password",
-              "ssl.client.auth"
+              "ssl.client.auth",
+              "super.users"
             ],
             "additionalConfigs" : [
               {
@@ -569,6 +601,14 @@
           "description": "Authenticate a SASL connection with zookeeper, if Kerberos authentication is enabled. It also allows a broker to set SASL ACL on zookeeper nodes which locks these nodes down so that only kafka broker can modify.",
           "type": "boolean",
           "default": true
+        },
+        {
+          "name": "super.users",
+          "label": "Super users",
+          "description": "Users who are allowed to perform any action on the Kafka cluster.",
+          "type" : "string_array",
+          "separator" : ";",
+          "default": ["kafka"]
         },
         {
           "name": "log.dirs",
@@ -737,7 +777,7 @@
       },
       "logging": {
         "dir": "/var/log/kafka",
-        "filename": "mirrormaker.log",
+        "filename": "kafka-mirrormaker-${host}.log",
         "modifiable": true,
         "configName": "kafka_mirrormaker.log4j.dir",
         "loggingType": "log4j"
@@ -774,11 +814,16 @@
             "filename": "mirror_maker_producers.properties",
             "configFormat": "properties",
             "includedParams": [
+              "bootstrap.servers",
+              "linger.ms",
+              "compression.type",
+              "batch.size",
+              "buffer.memory"
             ],
             "additionalConfigs" : [
               {
-                "key" : "bootstrap.servers",
-                "value" : "${bootstrap.servers}"
+                "key" : "request.timeout.ms",
+                "value" : "${producer.request.timeout.ms}"
               },
               {
                 "key" : "#ssl.configs",
@@ -798,12 +843,18 @@
             "filename": "mirror_maker_consumers.properties",
             "configFormat": "properties",
             "includedParams": [
-              "group.id"
+              "group.id",
+              "session.timeout.ms",
+              "fetch.min.bytes"
             ],
             "additionalConfigs" : [
               {
                 "key" : "bootstrap.servers",
                 "value" : "${source.bootstrap.servers}"
+              },
+              {
+                "key" : "request.timeout.ms",
+                "value" : "${consumer.request.timeout.ms}"
               },
               {
                 "key" : "#ssl.configs",
@@ -940,6 +991,82 @@
           "min": 1
         },
         {
+          "name": "linger.ms",
+          "label": "Producer Linger Time",
+          "description": "The upper bound on the delay for batching. Once the producer gets a batch.size worth of records for a partition it will be sent immediately regardless of this setting. However if fewer than this many bytes accumulated for this partition the producer will 'linger' for the specified time waiting for more records to show up. Only respected by Kafka 2.0 or later.",
+          "type": "long",
+          "default": 0,
+          "min": 0,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "batch.size",
+          "label": "Producer Batch Size",
+          "description": "This configuration controls the batch size in bytes. The producer will attempt to batch records together into fewer requests whenever multiple records are being sent to the same partition. This helps performance on both the client and the server. Only respected by Kafka 2.0 or later.",
+          "type": "long",
+          "default": 16384,
+          "min": 1,
+          "max": 2147483647,
+          "unit": "bytes"
+        },
+        {
+          "name": "buffer.memory",
+          "label": "Producer Buffer Memory",
+          "description": "The total bytes of memory the producer can use to buffer records waiting to be sent to the server. Only respected by Kafka 2.0 or later.",
+          "type": "long",
+          "default": 33554432,
+          "min": 1,
+          "unit": "bytes"
+        },
+        {
+          "name": "compression.type",
+          "label": "Producer Compression Type",
+          "description": "The compression type for all data generated by the producer. Only respected by Kafka 2.0 or later.",
+          "type": "string_enum",
+          "validValues" : [ "none", "snappy", "gzip" ],
+          "default": "none"
+        },
+        {
+          "name": "producer.request.timeout.ms",
+          "label": "Producer Request Timeout",
+          "description": "The maximum amount of time the producer will wait for the response of a request. If the response is not received before the timeout elapses the producer will resend the request if necessary or fail the request if retries are exhausted. Only respected by Kafka 2.0 or later.",
+          "type": "long",
+          "default": 30000,
+          "min": 1,
+          "max": 2147483647,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "consumer.request.timeout.ms",
+          "label": "Consumer Request Timeout",
+          "description": "The maximum amount of time the consumer will wait for the response of a request. If the response is not received before the timeout elapses the consumer will resend the request if necessary or fail the request if retries are exhausted. Only respected by Kafka 2.0 or later.",
+          "type": "long",
+          "default": 40000,
+          "min": 1,
+          "max": 2147483647,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "session.timeout.ms",
+          "label": "Consumer Session Timeout",
+          "description": "The timeout used to detect failures when using Kafka's group management facilities. When a consumer's heartbeat is not received within the session timeout, the broker will mark the consumer as failed and rebalance the group. Note that the value must be in the allowable range as configured in the broker by group.min.session.timeout.ms and group.max.session.timeout.ms. Only respected by Kafka 2.0 or later.",
+          "type": "long",
+          "default": 30000,
+          "min": 1,
+          "max": 2147483647,
+          "unit": "milliseconds"
+        },
+        {
+          "name": "fetch.min.bytes",
+          "label": "Consumer Minimum Fetch Size",
+          "description": "The minimum amount of data the server should return for a fetch request. If insufficient data is available the request will wait for that much data to accumulate before answering the request. Setting this to something greater than 1 will cause the server to wait for larger amounts of data to accumulate which can improve server throughput a bit at the cost of some additional latency.",
+          "type": "long",
+          "default": 1,
+          "min": 1,
+          "max": 2147483647,
+          "unit": "bytes"
+        },
+        {
           "name": "consumer.rebalance.listener",
           "label": "MirrorMaker Consumer Rebalance Listener",
           "description": "A consumer rebalance listener of type ConsumerRebalanceListener to be invoked when MirrorMaker's consumer rebalances.",
@@ -1019,6 +1146,39 @@
       ]
     }
   ],
+  "gateway" : {
+    "alternatives" : {
+      "name" : "kafka-conf",
+      "priority" : 50,
+      "linkRoot" : "/etc/kafka"
+    },
+    "scriptRunner" : {
+      "program" : "scripts/deploy_client_config.sh",
+      "environmentVariables" : {
+        "CHROOT" : "${zookeeper.chroot}"
+      }
+    },
+    "logging" : {
+      "configFilename" : "kafka-conf/tools-log4j.properties",
+      "loggingType" : "log4j"
+    },
+    "configWriter" : {
+      "generators" : [
+        {
+          "filename" : "kafka-conf/kafka-client.conf",
+          "configFormat" : "properties",
+          "includedParams": [
+          ],
+          "additionalConfigs" : [
+            {
+              "key" : "#zookeeper.connect",
+              "value" : "{{QUORUM}}"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "rollingRestart": {
     "nonWorkerSteps": [
       {

@@ -1,27 +1,17 @@
-Cloudera Manager CSDs
-=======
+Service Management Extensions
+====
 
-A collection of Custom Service Descriptors.
+A number of implementations of Service Management Extensions.
 
-Requirements
-------------
+Please make sure to get your changes reviewed. Your changes get picked by CM builds automatically, so it's important that everyone is aware about them and has a chance to comment on them.
 
- * Maven 3 (to build)
+<h2>Structure</h2>
 
-## Building the CSDs
+Each CSD has its own directory.
 
-The CSDs can be build by running:
+To build run:
 
-```bash
-$ mvn install
-```
-
-The CSD itself is a jar file located under the target
-directory of each CSD. For Spark, the CSD is located:
-
-```bash
-$ ls SPARK/target/SPARK-1.0-SNAPSHOT.jar
-```
-
-All source in this repository is [Apache-Licensed](LICENSE.txt).
+<pre>
+mvn clean install
+</pre>
 

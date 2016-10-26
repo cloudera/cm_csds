@@ -45,6 +45,7 @@ echo "KERBEROS_AUTH_ENABLED: ${KERBEROS_AUTH_ENABLED}"
 echo "KAFKA_PRINCIPAL: ${KAFKA_PRINCIPAL}"
 echo "SECURITY_INTER_BROKER_PROTOCOL: ${SECURITY_INTER_BROKER_PROTOCOL}"
 echo "AUTHENTICATE_ZOOKEEPER_CONNECTION: ${AUTHENTICATE_ZOOKEEPER_CONNECTION}"
+echo "SUPER_USERS: ${SUPER_USERS}"
 
 KAFKA_VERSION=$(grep "^version=" $KAFKA_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
 KAFKA_MAJOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 1)
@@ -187,6 +188,18 @@ perl -pi -e "s#\#listeners={{LISTENERS}}#${LISTENERS}#" $CONF_DIR/kafka.properti
 
 # Propagating logger information to Kafka
 export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$CONF_DIR/log4j.properties"
+
+# If Sentry is configured, add some Sentry specific params
+if [[ -f $CONF_DIR/sentry-conf/sentry-site.xml ]]; then
+    echo "authorizer.class.name=org.apache.sentry.kafka.authorizer.SentryKafkaAuthorizer" >> $CONF_DIR/kafka.properties
+    echo "sentry.kafka.site.url=file:$CONF_DIR/sentry-conf/sentry-site.xml" >> $CONF_DIR/kafka.properties
+    echo "sentry.kafka.principal.hostname=${HOST}" >> $CONF_DIR/kafka.properties
+    echo "sentry.kafka.kerberos.principal=${KAFKA_PRINCIPAL}" >> $CONF_DIR/kafka.properties
+    echo "sentry.kafka.keytab.file=${KEYTAB_FILE}" >> $CONF_DIR/kafka.properties
+    if [[ -n ${SUPER_USERS} ]]; then
+      echo "super.users=User:"${SUPER_USERS//;/;User:} >> $CONF_DIR/kafka.properties
+    fi
+fi
 
 # Set LOG_DIR to pwd as this directory exists and hence the underlaying run-kafka-class.sh won't try to create a new directory inside the parcel
 export LOG_DIR=`pwd`

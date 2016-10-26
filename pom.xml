@@ -2,15 +2,20 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.cloudera</groupId>
+    <artifactId>enterprise</artifactId>
+    <version>5.9.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
 
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>5.8.0</version>
+  <version>5.9.0</version>
   <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
   <modules>
-    <module>ECHO</module>
     <module>ACCUMULO</module>
     <module>ACCUMULO16</module>
     <module>SPARK</module>
@@ -18,9 +23,16 @@
     <module>SPARK_ON_YARN54</module>
     <module>SPARK_ON_YARN53</module>
     <module>SQOOP_CLIENT</module>
+    <module>ISILON</module>
     <module>KMS</module>
     <module>KEYTRUSTEE</module>
+    <module>KEYTRUSTEE_SERVER</module>
     <module>KAFKA</module>
+    <module>HIVE</module>
+    <module>HDFS</module>
+    <module>HUE</module>
+    <module>IMPALA</module>
+    <module>S3A</module>
   </modules>
 
   <build>
@@ -43,7 +55,7 @@
                MDL files in the src directory. -->
           <groupId>com.cloudera.enterprise</groupId>
           <artifactId>schema-validator-maven-plugin</artifactId>
-          <version>${project.version}</version>
+          <version>5.9.0</version>
           <executions>
             <execution>
               <id>validate-schema</id>
