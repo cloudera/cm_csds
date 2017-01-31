@@ -92,7 +92,7 @@ export CATALINA_BASE="$KMS_STAGING_DIR/tomcat-deployment"
 
 # Set up the number of threads and heap size
 export KMS_MAX_THREADS
-export CATALINA_OPTS="-Xmx${KMS_HEAP_SIZE}"
+export CATALINA_OPTS="-Xmx${KMS_HEAP_SIZE} ${CSD_JAVA_OPTS} ${KMS_JAVA_OPTS}"
 
 # Deploy KMS tomcat app.
 env TOMCAT_CONF=${TOMCAT_CONF} TOMCAT_DEPLOYMENT=${CATALINA_BASE} KMS_HOME=${KMS_HOME} \
@@ -108,6 +108,8 @@ echo "TOMCAT_CONF is ${TOMCAT_CONF}"
 echo "CATALINA_BASE is ${CATALINA_BASE}"
 echo "SSL_ENABLED is ${SSL_ENABLED}"
 echo "KMS_SSL_KEYSTORE_FILE is ${KMS_SSL_KEYSTORE_FILE}"
+echo "CSD_JAVA_OPTS is ${CSD_JAVA_OPTS}"
+echo "KMS_JAVA_OPTS is ${KMS_JAVA_OPTS}"
 
 
 if [ "$SSL_ENABLED" = "false" ]; then

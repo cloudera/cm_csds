@@ -2,7 +2,7 @@
   "name" : "KMS",
   "label" : "Java KeyStore KMS",
   "description" : "The Hadoop Key Management Service with file-based Java KeyStore. Maintains a single copy of keys, using simple password-based protection. Requires CDH 5.3+. <span class=\"error\">Not recommended for production use.</span>",
-  "version" : "5.9.1",
+  "version" : "5.10.0",
   "runAs" : {
     "user" : "kms",
     "group" : "kms"
@@ -44,6 +44,7 @@
       "name" : "KMS",
       "label" : "Key Management Server",
       "pluralLabel" : "Key Management Servers",
+      "jvmBased" : "true",
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [
@@ -59,7 +60,8 @@
           "SSL_ENABLED" : "${ssl_enabled}",
           "KMS_SSL_KEYSTORE_FILE" : "${ssl_server_keystore_location}",
           "KMS_SSL_KEYSTORE_PASS" : "${ssl_server_keystore_password}",
-          "KMS_JKS_PASSWORD" : "${hadoop_security_keystore_javaKeyStoreProvider_hidden_password}"
+          "KMS_JKS_PASSWORD" : "${hadoop_security_keystore_javaKeyStoreProvider_hidden_password}",
+          "KMS_JAVA_OPTS": "${kms_java_opts}"
         }
       },
       "topology" : {
@@ -157,6 +159,13 @@
           "min" : 67108864,
           "default" : 1073741824,
           "scaleFactor" : "1.3"
+        },
+        {
+          "name": "kms_java_opts",
+          "label": "Additional Java Configuration Options for KMS",
+          "description": "These arguments will be passed as part of the Java command line. Commonly, garbage collection flags, PermGen, or extra debugging flags would be passed here.",
+          "type": "string",
+          "default": ""
         },
         {
           // Note that the name and configName differ here, since we munge the
