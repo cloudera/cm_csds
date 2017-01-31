@@ -2,7 +2,7 @@
   "name" : "KEYTRUSTEE",
   "label" : "Key Trustee KMS",
   "description" : "The Hadoop Key Management Service backed by Cloudera Navigator Key Trustee Server for enterprise-grade key storage and protection. Requires CDH 5.3+ and existing Key Trustee Servers. <span class=\"error\">Before adding this service, ensure that you have installed the Key Trustee binaries, which are not included in CDH.</span>",
-  "version" : "5.9.1",
+  "version" : "5.10.0",
   "licenseFeature" : "KEYTRUSTEE",
   "runAs" : {
     "user" : "kms",
@@ -93,6 +93,7 @@
       "name" : "KMS_KEYTRUSTEE",
       "label" : "Key Management Server Proxy",
       "pluralLabel" : "Key Management Server Proxies",
+      "jvmBased" : "true",
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [
@@ -109,7 +110,8 @@
           "KMS_SSL_KEYSTORE_FILE" : "${ssl_server_keystore_location}",
           "KMS_SSL_KEYSTORE_PASS" : "${ssl_server_keystore_password}",
           "KMS_SSL_TRUSTSTORE_FILE" : "${ssl_client_truststore_location}",
-          "KMS_SSL_TRUSTSTORE_PASS" : "${ssl_client_truststore_password}"
+          "KMS_SSL_TRUSTSTORE_PASS" : "${ssl_client_truststore_password}",
+          "KMS_JAVA_OPTS": "${kms_java_opts}"
         }
       },
       "topology" : {
@@ -208,6 +210,13 @@
           "min" : 67108864,
           "default" : 1073741824,
           "scaleFactor" : "1.3"
+        },
+        {
+          "name": "kms_java_opts",
+          "label": "Additional Java Configuration Options for KMS",
+          "description": "These arguments will be passed as part of the Java command line. Commonly, garbage collection flags, PermGen, or extra debugging flags would be passed here.",
+          "type": "string",
+          "default": ""
         },
         {
           // Note that the name and configName differ here, since we munge the

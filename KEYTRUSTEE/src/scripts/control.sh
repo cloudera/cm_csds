@@ -88,7 +88,7 @@ export CATALINA_BASE="$KMS_STAGING_DIR/tomcat-deployment"
 
 # Set up the number of threads and heap size
 export $KMS_MAX_THREADS
-export CATALINA_OPTS="-Xmx${KMS_HEAP_SIZE}"
+export CATALINA_OPTS="-Xmx${KMS_HEAP_SIZE} ${CSD_JAVA_OPTS} ${KMS_JAVA_OPTS}"
 
 # do some ssl password stuff in private
 set +x
@@ -133,6 +133,8 @@ echo "KMS_SSL_KEYSTORE_FILE is ${KMS_SSL_KEYSTORE_FILE}"
 
 echo "KMS_PLUGIN_DIR is ${KMS_PLUGIN_DIR}"
 echo "KMS_SSL_TRUSTSTORE_FILE is ${KMS_SSL_TRUSTSTORE_FILE}"
+echo "CSD_JAVA_OPTS is ${CSD_JAVA_OPTS}"
+echo "KMS_JAVA_OPTS is ${KMS_JAVA_OPTS}"
 
 # Add zk quorum to kms-site.xml
 add_to_kms_site hadoop.kms.authentication.signer.secret.provider.zookeeper.connection.string $ZK_QUORUM
