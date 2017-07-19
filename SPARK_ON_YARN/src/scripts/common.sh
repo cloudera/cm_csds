@@ -39,7 +39,7 @@ export BIGTOP_DEFAULTS_DIR=""
 export HADOOP_HOME=${HADOOP_HOME:-$(readlink -m "$CDH_HADOOP_HOME")}
 export HDFS_BIN=$HADOOP_HOME/../../bin/hdfs
 
-USE_EMPTY_DEFAULT_FS=0
+HAS_HDFS_CONFIG=1
 if [ -d "$CONF_DIR/yarn-conf" ]; then
   HADOOP_CONF_DIR="$CONF_DIR/yarn-conf"
 elif [ -d "$CONF_DIR/hadoop-conf" ]; then
@@ -52,10 +52,12 @@ else
   # so we override that with a default value.
   mkdir "$CONF_DIR/empty-hadoop-conf"
   HADOOP_CONF_DIR="$CONF_DIR/empty-hadoop-conf"
-  USE_EMPTY_DEFAULT_FS=1
+  HAS_HDFS_CONFIG=0
 fi
 export HADOOP_CONF_DIR
 export USE_EMPTY_DEFAULT_FS
+
+HBASE_CONF_DIR="$CONF_DIR/hbase-conf"
 
 # If SPARK_HOME is not set, make it the default
 DEFAULT_SPARK_HOME=/usr/lib/spark
@@ -71,6 +73,7 @@ fi
 # Variables used when generating configs.
 export SPARK_ENV="$SPARK_CONF_DIR/spark-env.sh"
 export SPARK_DEFAULTS="$SPARK_CONF_DIR/spark-defaults.conf"
+export NAVIGATOR_LINEAGE_CLIENT_PROPERTIES="$SPARK_CONF_DIR/navigator.lineage.client.properties"
 
 # Set JAVA_OPTS for the daemons
 # sets preference to IPV4
@@ -86,13 +89,20 @@ function readconf {
   IFS='=' read key value <<< "$conf"
 }
 
-function get_default_fs {
-  if [ $USE_EMPTY_DEFAULT_FS == 0 ]; then
-    "$HDFS_BIN" --config $1 getconf -confKey fs.defaultFS
+function get_hadoop_conf {
+  local conf="$1"
+  local key="$2"
+  if [ $HAS_HDFS_CONFIG == 1 ]; then
+    "$HDFS_BIN" --config "$conf" getconf -confKey "$key"
   else
     echo ""
   fi
 }
+
+function get_default_fs {
+  get_hadoop_conf "$1" "fs.defaultFS"
+}
+
 
 # replace $1 with $2 in file $3
 function replace {
@@ -114,7 +124,10 @@ function replace_spark_conf {
   local value="$2"
   local file="$3"
   local temp="$file.tmp"
-  grep -v "^$key=" "$file" > "$temp"
+  touch "$temp"
+  chown --reference="$file" "$temp"
+  chmod --reference="$file" "$temp"
+  grep -v "^$key=" "$file" >> "$temp"
   echo "$key=$value" >> "$temp"
   mv "$temp" "$file"
 }
@@ -143,6 +156,8 @@ function is_blacklisted {
   elif [[ "$JAR" =~ ^jersey.*-1\.[^9].*\.jar ]]; then
     return 0
   elif [[ "$JAR" =~ ^jackson.* ]] && ! [[ "$JAR" =~ ^jackson.*-(1\.8|2\.2\.3).*\.jar ]]; then
+    return 0
+  elif [[ "$JAR" =~ ^junit-.* ]]; then
     return 0
   fi
   return 1
@@ -195,6 +210,12 @@ function prepare_spark_env {
 
   local HADOOP_CP="$($HADOOP_HOME/bin/hadoop --config $HADOOP_CONF_DIR classpath)"
   add_to_classpath "$CLASSPATH_FILE_TMP" "$HADOOP_CP"
+
+  # If there's an HBase configuration directory, add HBase's classpath after the Hadoop one.
+  if [ -d "$HBASE_CONF_DIR" ]; then
+    local HBASE_CP="$(hbase --config $HBASE_CONF_DIR classpath)"
+    add_to_classpath "$CLASSPATH_FILE_TMP" "$HBASE_CP"
+  fi
 
   # CDH-29066. Some versions of CDH don't define CDH_AVRO_HOME nor CDH_PARQUET_HOME. But the CM
   # agent does define a default value for CDH_PARQUET_HOME which does not work with parcels. So
@@ -251,6 +272,25 @@ function find_local_spark_jar {
   fi
 }
 
+# Check whether the given config key ($1) exists in the given conf file ($2).
+function has_config {
+  local key="$1"
+  local file="$2"
+  grep -q "^$key=" "$file"
+}
+
+# Appends an item ($2) to a comma-separated list ($1).
+function add_to_list {
+  local list="$1"
+  local item="$2"
+  if [ -n "$list" ]; then
+    list="$list,$item"
+  else
+    list="$item"
+  fi
+  echo "$list"
+}
+
 function run_spark_class {
   local ARGS=($@)
   ARGS+=($ADDITIONAL_ARGS)
@@ -264,11 +304,58 @@ function run_spark_class {
 
 function start_history_server {
   log "Starting Spark History Server"
-  local CONF_FILE="$CONF_DIR/spark-history-server.conf"
+  local CONF_FILE="$SPARK_CONF_DIR/spark-history-server.conf"
   local DEFAULT_FS=$(get_default_fs $HADOOP_CONF_DIR)
   local LOG_DIR=$(prepend_protocol "$HISTORY_LOG_DIR" "$DEFAULT_FS")
+
   if [ -f "$CONF_FILE" ]; then
+    # Make a defensive copy of the config file; when startup fails, CM will retry the same
+    # process again, so we want to append configs to the original config file, not to the
+    # update version.
+    if [ ! -f "$CONF_FILE.orig" ]; then
+      cp -p "$CONF_FILE" "$CONF_FILE.orig"
+    fi
+    cp -p "$CONF_FILE.orig" "$CONF_FILE"
+
     echo "spark.history.fs.logDirectory=$LOG_DIR" >> "$CONF_FILE"
+
+    if [ "$SPARK_PRINCIPAL" != "" ]; then
+      echo "spark.history.kerberos.enabled=true" >> "$CONF_FILE"
+      echo "spark.history.kerberos.principal=$SPARK_PRINCIPAL" >> "$CONF_FILE"
+      echo "spark.history.kerberos.keytab=spark_on_yarn.keytab" >> "$CONF_FILE"
+    fi
+
+    local FILTERS_KEY="spark.ui.filters"
+    local FILTERS=$(read_spark_conf "$FILTERS_KEY" "$CONF_FILE")
+
+    if [ "$YARN_PROXY_REDIRECT" = "true" ]; then
+      FILTERS=$(add_to_list "$FILTERS" "org.apache.spark.deploy.yarn.YarnProxyRedirectFilter")
+    fi
+
+    if [ "$ENABLE_SPNEGO" = "true" ] && [ -n "$SPNEGO_PRINCIPAL" ]; then
+      local AUTH_FILTER="org.apache.hadoop.security.authentication.server.AuthenticationFilter"
+      FILTERS=$(add_to_list "$FILTERS" "$AUTH_FILTER")
+
+      local FILTER_CONF_KEY="spark.$AUTH_FILTER.param"
+      echo "$FILTER_CONF_KEY.type=kerberos" >> "$CONF_FILE"
+      echo "$FILTER_CONF_KEY.kerberos.principal=$SPNEGO_PRINCIPAL" >> "$CONF_FILE"
+      echo "$FILTER_CONF_KEY.kerberos.keytab=spark_on_yarn.keytab" >> "$CONF_FILE"
+      echo "$FILTER_CONF_KEY.kerberos.name.rules=DEFAULT" >> "$CONF_FILE"
+
+      # Also enable ACLs in the History Server, otherwise auth is not very useful.
+      echo "spark.history.ui.acls.enable=true" >> "$CONF_FILE"
+    fi
+
+    if [ -n "$FILTERS" ]; then
+      replace_spark_conf "$FILTERS_KEY" "$FILTERS" "$CONF_FILE"
+    fi
+
+    # Write the keystore password to the config file. Disable logging while doing that.
+    set +x
+    if [ -n "$KEYSTORE_PASSWORD" ]; then
+      echo "spark.ssl.historyServer.keyStorePassword=$KEYSTORE_PASSWORD" >> "$CONF_FILE"
+    fi
+    set -x
 
     ARGS=(
       "org.apache.spark.deploy.history.HistoryServer"
@@ -276,6 +363,10 @@ function start_history_server {
       "$CONF_FILE"
     )
   else
+    KRB_OPTS="-Dspark.history.kerberos.enabled=true"
+    KRB_OPTS="$KRB_OPTS -Dspark.history.kerberos.principal=$SPARK_PRINCIPAL"
+    KRB_OPTS="$KRB_OPTS -Dspark.history.kerberos.keytab=spark_on_yarn.keytab"
+    export SPARK_DAEMON_JAVA_OPTS="$KRB_OPTS $SPARK_DAEMON_JAVA_OPTS"
     ARGS=(
       "org.apache.spark.deploy.history.HistoryServer"
       -d
@@ -283,12 +374,6 @@ function start_history_server {
     )
   fi
 
-  if [ "$SPARK_PRINCIPAL" != "" ]; then
-    KRB_OPTS="-Dspark.history.kerberos.enabled=true"
-    KRB_OPTS="$KRB_OPTS -Dspark.history.kerberos.principal=$SPARK_PRINCIPAL"
-    KRB_OPTS="$KRB_OPTS -Dspark.history.kerberos.keytab=spark_on_yarn.keytab"
-    export SPARK_DAEMON_JAVA_OPTS="$KRB_OPTS $SPARK_DAEMON_JAVA_OPTS"
-  fi
   run_spark_class "${ARGS[@]}"
 }
 
@@ -301,7 +386,10 @@ function deploy_client_config {
   fi
 
   # Move the Yarn configuration under the Spark config. Do not overwrite Spark's log4j config.
-  HADOOP_CLIENT_CONF_DIR="$SPARK_CONF_DIR/$(basename $HADOOP_CONF_DIR)"
+  HADOOP_CONF_NAME=$(basename "$HADOOP_CONF_DIR")
+  HADOOP_CLIENT_CONF_DIR="$SPARK_CONF_DIR/$HADOOP_CONF_NAME"
+  TARGET_HADOOP_CONF_DIR="$DEST_PATH/$HADOOP_CONF_NAME"
+
   mkdir "$HADOOP_CLIENT_CONF_DIR"
   for i in "$HADOOP_CONF_DIR"/*; do
     if [ $(basename "$i") != log4j.properties ]; then
@@ -312,8 +400,19 @@ function deploy_client_config {
       replace "{{CDH_MR2_HOME}}" "$CDH_MR2_HOME" "$target"
       replace "{{HADOOP_CLASSPATH}}" "$HADOOP_CLASSPATH" "$target"
       replace "{{JAVA_LIBRARY_PATH}}" "" "$target"
+      replace "{{CMF_CONF_DIR}}" "$TARGET_HADOOP_CONF_DIR" "$target"
     fi
   done
+
+  # If there's an HBase configuration directory, copy its files to the Spark config dir.
+  if [ -d "$HBASE_CONF_DIR" ]; then
+    for i in "$HBASE_CONF_DIR"/*; do
+      local name=$(basename "$i")
+      if [ ! -f "$HADOOP_CLIENT_CONF_DIR/$name" ]; then
+        mv "$i" "$HADOOP_CLIENT_CONF_DIR"
+      fi
+    done
+  fi
 
   DEFAULT_FS=$(get_default_fs "$HADOOP_CLIENT_CONF_DIR")
 
@@ -389,6 +488,48 @@ function deploy_client_config {
   if [ -n "$CDH_PYTHON" ]; then
     echo "spark.yarn.appMasterEnv.PYSPARK_PYTHON=$CDH_PYTHON" >> "$SPARK_DEFAULTS"
     echo "spark.yarn.appMasterEnv.PYSPARK_DRIVER_PYTHON=$CDH_PYTHON" >> "$SPARK_DEFAULTS"
+  fi
+
+  # These values cannot be declared in the descriptor, since the CSD framework will
+  # treat them as config references and fail. So add them here unless they've already
+  # been set by the user in the safety valve.
+  #
+  # Furthermore, because only a few versions of Spark support this feature, check whether
+  # the "shell.log.level" property has been set in the logging configuration before adding
+  # the new ones.
+  LOG_CONFIG="$SPARK_CONF_DIR/log4j.properties"
+  if has_config "shell.log.level" "$LOG_CONFIG"; then
+    SHELL_CLASSES=("org.apache.spark.repl.Main"
+      "org.apache.spark.api.python.PythonGatewayServer")
+    for class in "${SHELL_CLASSES[@]}"; do
+      key="log4j.logger.$class"
+      if ! has_config "$key" "$LOG_CONFIG"; then
+        echo "$key=\${shell.log.level}" >> "$LOG_CONFIG"
+      fi
+    done
+  fi
+
+  # Allow SHS to be used when UI is disabled. This only works on CDH 5.11 and later, but setting
+  # it in older Spark configs does no harm.
+  local key="spark.yarn.historyServer.allowTracking"
+  if ! has_config "$key" "$SPARK_DEFAULTS"; then
+    echo "$key=true" >> "$SPARK_DEFAULTS"
+  fi
+
+  # In 5.11+, Spark lineage is not supported in Single User Mode (SUM). But, if the user
+  # enables lineage in SUM, 'spark.lineage.enabled' would still emit as 'true'; this is a
+  # limitation of 'string interpolation' in the CSD framework. However, CM will emit an empty
+  # 'navigator.lineage.client.properties' file if lineage is enabled in SUM. So, we check for
+  # this file's size and emit the right value for 'spark.lineage.enabled' key in
+  # 'spark-defaults.conf'.
+  local lineage_key="spark.lineage.enabled"
+  if has_config "$lineage_key" "$SPARK_DEFAULTS"; then
+    if [[ -s "$NAVIGATOR_LINEAGE_CLIENT_PROPERTIES" ]]; then
+      value="true"
+    else
+      value="false"
+    fi
+    replace_spark_conf "$lineage_key" "$value" "$SPARK_DEFAULTS"
   fi
 }
 

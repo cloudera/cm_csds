@@ -17,8 +17,8 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.8.0",
-  "compatibility" : { "cdhVersion" : { "min" : "5.5.0" } },
+  "version" : "5.12.0",
+  "compatibility" : { "cdhVersion" : { "min" : "5.11.0" } },
   "runAs" : {
     "user" : "spark",
     "group" : "spark",
@@ -34,6 +34,10 @@
     {
       "name" : "YARN",
       "required" : "true"
+    },
+    {
+      "name" : "HBASE",
+      "required" : "false"
     }
   ],
   "dependencyExtensions" : [
@@ -117,7 +121,7 @@
     {
       "name" : "spark_shuffle_service_port",
       "label" : "Spark Shuffle Service Port",
-      "description" : "The port the Spark Shuffle Service listens for fetch requests.",
+      "description" : "The port the Spark Shuffle Service listens for fetch requests. If using Spark2, ensure that value of this property is the same in both services.",
       "configName" : "spark.shuffle.service.port",
       "default" : 7337,
       "type" : "port",
@@ -126,11 +130,15 @@
     {
       "name" : "spark_authenticate",
       "label" : "Spark Authentication",
-      "description" : "Enable whether the Spark communication protocols do authentication using a shared secret.",
+      "description" : "Enable whether the Spark communication protocols do authentication using a shared secret. If using Spark2, ensure that value of this property is the same in both services.",
       "configName" : "spark.authenticate",
       "required" : "true",
       "type" : "boolean",
       "default" : false
+    },
+    {
+        "name" : "navigator_lineage_enabled",
+        "type" : "provided"
     }
   ],
   "rolesWithExternalLinks" : ["SPARK_YARN_HISTORY_SERVER"],
@@ -145,13 +153,21 @@
         "args" : [ "start_history_server" ],
         "environmentVariables" : {
           "HISTORY_LOG_DIR" : "${spark_history_log_dir}",
-          "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}"
+          "SPARK_DAEMON_MEMORY" : "${history_server_max_heapsize}",
+          "ENABLE_SPNEGO" : "${history_server_spnego_enabled}",
+          "YARN_PROXY_REDIRECT" : "true",
+          "KEYSTORE_PASSWORD" : "${ssl_server_keystore_password}"
         }
       },
       "kerberosPrincipals" : [
         {
           "name" : "SPARK_PRINCIPAL",
           "primary" : "${principal}",
+          "instance" : "${host}"
+        },
+        {
+          "name" : "SPNEGO_PRINCIPAL",
+          "primary" : "HTTP",
           "instance" : "${host}"
         }
       ],
@@ -178,6 +194,7 @@
       },
       "topology" : { "minInstances" : 1, "maxInstances" : 1 },
       "logging" : {
+        "configFilename" : "spark-conf/log4j.properties",
         "dir" : "/var/log/spark",
         "filename" : "spark-history-server-${host}.log",
         "modifiable" : true,
@@ -251,20 +268,85 @@
           "type" : "long",
           "unit" : "seconds",
           "default" : 604800
+        },
+        {
+          "name" : "history_server_spnego_enabled",
+          "label" : "Enable User Authentication",
+          "description" : "Enables user authentication using SPNEGO (requires Kerberos), and enables access control to application history data.",
+          "required" : "false",
+          "type" : "boolean",
+          "default" : false
+        },
+        {
+          "name" : "history_server_admin_users",
+          "label" : "Admin Users",
+          "description" : "Comma-separated list of users who can view all applications when authentication is enabled.",
+          "configName" : "spark.history.ui.admin.acls",
+          "default" : "",
+          "type" : "string",
+          "required" : "false"
+        },
+        {
+          "name" : "ssl_server_port",
+          "label" : "TLS/SSL Port Number",
+          "description" : "Port where to listen for TLS/SSL connections. HTTP connections will be redirected to this port when TLS/SSL is enabled.",
+          "configName" : "spark.ssl.historyServer.port",
+          "default" : 18488,
+          "type" : "port",
+          "required" : "false"
+        },
+        {
+          "name" : "ssl_server_protocol",
+          "label" : "TLS/SSL Protocol",
+          "description" : "The version of the TLS/SSL  protocol to use when TLS/SSL is enabled.",
+          "configName" : "spark.ssl.historyServer.protocol",
+          "default" : "TLSv1.2",
+          "type" : "string",
+          "required" : "false"
+        },
+        {
+          "name" : "ssl_server_algorithms",
+          "label" : "Enabled SSL/TLS Algorithms",
+          "description" : "A comma-separated list of algorithm names to enable when TLS/SSL is enabled. By default, all algorithms supported by the JRE are enabled.",
+          "configName" : "spark.ssl.historyServer.enabledAlgorithms",
+          "default" : null,
+          "type" : "string",
+          "required" : "false"
         }
       ],
+      "sslServer" : {
+        "keyIdentifier" : "spark_history_server",
+        "enabledConfigName" : "spark.ssl.historyServer.enabled",
+        "keystoreLocationConfigName" : "spark.ssl.historyServer.keyStore",
+        "keystorePasswordCredentialProviderCompatible" : false,
+        "keystorePasswordScriptBased" : false,
+        "autoTlsMode" : "auto"
+      },
       "configWriter" : {
         "generators" : [
           {
-            "filename" : "spark-history-server.conf",
+            "filename" : "spark-conf/spark-history-server.conf",
             "configFormat" : "properties",
             "includedParams" : [
               "history_server_web_port",
               "history_server_retained_apps",
               "history_server_fs_poll_interval",
+              "history_server_admin_users",
               "event_log_cleaner_enabled",
               "event_log_cleaner_interval",
-              "event_log_cleaner_max_age"
+              "event_log_cleaner_max_age",
+              "ssl_enabled",
+              "ssl_server_keystore_location",
+              "ssl_server_keystore_password",
+              "ssl_server_protocol",
+              "ssl_server_algorithms",
+              "ssl_server_port"
+            ],
+            "additionalConfigs" : [
+              {
+                "key" : "spark.port.maxRetries",
+                "value" : "0"
+              }
             ]
           }
         ],
@@ -418,6 +500,64 @@
         "type" : "string_enum",
         "validValues" : [ "TRACE", "DEBUG", "INFO", "WARN", "ERROR",  "FATAL" ],
         "default" : "WARN"
+      },
+      {
+        "name" : "spark_gateway_ui_kill_enabled",
+        "label" : "Enable Kill From UI",
+        "description" : "Whether to allow users to kill running stages from the Spark Web UI.",
+        "configName" : "spark.ui.killEnabled",
+        "required" : "true",
+        "type" : "boolean",
+        "default" : true
+      },
+      {
+        "name" : "spark_network_encryption_enabled",
+        "label" : "Enable Network Encryption",
+        "description" : "Whether to encrypt communication between Spark processes belonging to the same application. Requires authentication (spark.authenticate) to be enabled.",
+        "configName" : "spark.authenticate.enableSaslEncryption",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : false
+      },
+      {
+        "name" : "spark_io_encryption_enabled",
+        "label" : "Enable I/O Encryption",
+        "description" : "Whether to encrypt temporary shuffle and cache files stored by Spark on the local disks.",
+        "configName" : "spark.shuffle.encryption.enabled",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : false
+      },
+      {
+        "name" : "spark_ui_enabled",
+        "label" : "Enable Spark Web UI",
+        "description" : "Whether to enable the Spark Web UI on individual applications. It's recommended that the UI be disabled in secure clusters.",
+        "configName" : "spark.ui.enabled",
+        "required" : "false",
+        "type" : "boolean",
+        "default" : true
+	  },
+	  {
+        "name" : "spark_sql_queryexecutionlisteners",
+        "label" : "Spark SQL Query Execution Listeners",
+        "description" : "Spark SQL QueryExecutionListener that will listen to query executions and write out the lineage info to the lineage directory if lineage is enabled.",
+        "configName" : "spark.sql.queryExecutionListeners",
+        "required" : "false",
+        "type" : "string",
+        "default" : "com.cloudera.spark.lineage.ClouderaNavigatorListener"
+      },
+      {
+        "name" : "spark_extralisteners",
+        "label" : "Spark Extra Listeners",
+        "description" : "Spark listener that will write out the end of application marker when the application ends.",
+        "configName" : "spark.extraListeners",
+        "required" : "false",
+        "type" : "string",
+        "default" : "com.cloudera.spark.lineage.ClouderaNavigatorListener"
+      },
+      {
+        "name" : "lineage_event_log_dir",
+        "type" : "provided"
       }
     ],
     "scriptRunner" : {
@@ -433,8 +573,7 @@
       "configFilename" : "spark-conf/log4j.properties",
       "loggingType" : "log4j",
       "additionalConfigs" : [
-        { "key" : "log4j.logger.org.apache.spark.repl.Main", "value" : "${spark_gateway_shell_logging_threshold}" },
-
+        { "key" : "shell.log.level", "value" : "${spark_gateway_shell_logging_threshold}" },
         { "key" : "log4j.logger.org.eclipse.jetty", "value" : "WARN" },
         { "key" : "log4j.logger.org.spark-project.jetty", "value" : "WARN" },
         { "key" : "log4j.logger.org.spark-project.jetty.util.component.AbstractLifeCycle", "value" : "ERROR" },
@@ -446,6 +585,15 @@
         { "key" : "log4j.logger.org.apache.hadoop.hive.ql.exec.FunctionRegistry", "value" : "ERROR" }
       ]
     },
+    "dependencyExtensions": [
+       {
+         "extensionId" : "navigator_lineage_client",
+         "defaultDir" : "/var/log/spark/lineage",
+         "permissions" : "1777",
+         "singleUserModeAllowed": false,
+         "type" : "lineage"
+       }
+     ],
     "configWriter" : {
       "generators" : [
         {
@@ -465,7 +613,31 @@
             "spark_dynamic_allocation_idle_timeout",
             "spark_dynamic_allocation_cached_idle_timeout",
             "spark_dynamic_allocation_scheduler_backlog_timeout",
-            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout"
+            "spark_dynamic_allocation_sustained_scheduler_backlog_timeout",
+            "spark_gateway_ui_kill_enabled",
+            "spark_network_encryption_enabled",
+            "spark_io_encryption_enabled",
+            "spark_ui_enabled",
+            "spark_sql_queryexecutionlisteners",
+            "spark_extralisteners"
+          ],
+          "additionalConfigs" : [
+            {
+              "key" : "spark.lineage.log.dir",
+              "value" : "${lineage_event_log_dir}"
+            },
+            {
+              "key" : "spark.lineage.enabled",
+              "value" : "${navigator_lineage_enabled}"
+            },
+            {
+              "key" : "spark.sql.queryExecutionListeners",
+              "value" : "com.cloudera.spark.lineage.ClouderaNavigatorListener"
+            },
+            {
+              "key" : "spark.extraListeners",
+              "value" : "com.cloudera.spark.lineage.ClouderaNavigatorListener"
+            }
           ]
         }
       ],
@@ -485,5 +657,3 @@
     }
   }
 }
-
-
