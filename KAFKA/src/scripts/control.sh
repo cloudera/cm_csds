@@ -22,7 +22,12 @@ set -x
 
 DEFAULT_KAFKA_HOME=/usr/lib/kafka
 KAFKA_HOME=${KAFKA_HOME:-$DEFAULT_KAFKA_HOME}
+UNKNOWN_VERSION="unknown version"
 MIN_KAFKA_MAJOR_VERSION_WITH_SSL=2
+MIN_KAFKA_MAJOR_VERSION_WITH_SENTRY=2
+MIN_KAFKA_MINOR_VERSION_WITH_SENTRY=1
+MIN_CDH_MAJOR_VERSION_WITH_SENTRY=5
+MIN_CDH_MINOR_VERSION_WITH_SENTRY=9
 
 # For better debugging
 echo ""
@@ -45,11 +50,37 @@ echo "KERBEROS_AUTH_ENABLED: ${KERBEROS_AUTH_ENABLED}"
 echo "KAFKA_PRINCIPAL: ${KAFKA_PRINCIPAL}"
 echo "SECURITY_INTER_BROKER_PROTOCOL: ${SECURITY_INTER_BROKER_PROTOCOL}"
 echo "AUTHENTICATE_ZOOKEEPER_CONNECTION: ${AUTHENTICATE_ZOOKEEPER_CONNECTION}"
+echo "SUPER_USERS: ${SUPER_USERS}"
 
-KAFKA_VERSION=$(grep "^version=" $KAFKA_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
-KAFKA_MAJOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 1)
-echo "Kafka version found: ${KAFKA_VERSION}"
+if [[ ! -f $KAFKA_HOME/cloudera/cdh_version.properties ]]; then
+  KAFKA_VERSION=$UNKNOWN_VERSION
+  KAFKA_MAJOR_VERSION=1
+  KAFKA_MINOR_VERSION=0
+  echo "$KAFKA_HOME/cloudera/cdh_version.properties not found. Assuming older version of Kafka is being used."
+else
+  # example first line of version file: version=0.10.0-kafka2.1.1
+  KAFKA_VERSION=$(grep "^version=" $KAFKA_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
+  KAFKA_MAJOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 1)
+  KAFKA_MINOR_VERSION=$(echo $KAFKA_VERSION | cut -d '-' -f 2 | sed 's/kafka//g' | cut -d '.' -f 2)
+  echo "Kafka version found: ${KAFKA_VERSION}"
+fi
 
+if [[ -z $CDH_SENTRY_HOME || ! -f $CDH_SENTRY_HOME/cloudera/cdh_version.properties ]]; then
+  SENTRY_VERSION=$UNKNOWN_VERSION
+  SENTRY_MAJOR_VERSION=0
+  SENTRY_MINOR_VERSION=0
+  if [[ -z $CDH_SENTRY_HOME ]]; then
+    echo "CDH_SENTRY_HOME not set. Assuming Sentry is not installed."
+  else
+    echo "$CDH_SENTRY_HOME/cloudera/cdh_version.properties not found. Assuming older version of Sentry is being used."
+  fi
+else
+  # example first line of version file: version=1.5.1-cdh5.11.0
+  SENTRY_VERSION=$(grep "^version=" $CDH_SENTRY_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
+  SENTRY_MAJOR_VERSION=$(echo $SENTRY_VERSION | cut -d '-' -f 2 | sed 's/cdh//g' | cut -d '.' -f 1)
+  SENTRY_MINOR_VERSION=$(echo $SENTRY_VERSION | cut -d '-' -f 2 | sed 's/cdh//g' | cut -d '.' -f 2)
+  echo "Sentry version found: ${SENTRY_VERSION}"
+fi
 
 if [[ -z ${ZK_PRINCIPAL_NAME} ]]; then
     ZK_PRINCIPAL_NAME="zookeeper"
@@ -78,7 +109,7 @@ fi
 # Add SSL parameters
 if [[ ${BROKER_SSL_ENABLED} == "true" ]]; then
     # Make sure kafka version is greater than or equal to 2.0.0
-    if [[ ! -f $KAFKA_HOME/cloudera/cdh_version.properties ]]; then
+    if [[ ${KAFKA_VERSION} == ${UNKNOWN_VERSION} ]]; then
         echo "$KAFKA_HOME/cloudera/cdh_version.properties not found. Assuming older version of Kafka is being used that does not support SSL."
         exit 1
     else
@@ -187,6 +218,32 @@ perl -pi -e "s#\#listeners={{LISTENERS}}#${LISTENERS}#" $CONF_DIR/kafka.properti
 
 # Propagating logger information to Kafka
 export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$CONF_DIR/log4j.properties"
+
+# If Sentry is configured, add some Sentry specific params
+if [[ -f $CONF_DIR/sentry-conf/sentry-site.xml ]]; then
+    if [[ ${SENTRY_VERSION} == ${UNKNOWN_VERSION} ||
+          ${SENTRY_MAJOR_VERSION} -lt ${MIN_CDH_MAJOR_VERSION_WITH_SENTRY} ||
+          ${SENTRY_MAJOR_VERSION} -eq ${MIN_CDH_MAJOR_VERSION_WITH_SENTRY} &&
+            ${SENTRY_MINOR_VERSION} -lt ${MIN_CDH_MINOR_VERSION_WITH_SENTRY} ]]; then
+      echo "WARNING: Sentry version '${SENTRY_VERSION}' does not support Kafka Sentry integration. Ignoring Sentry configuration."
+    else
+      if [[ ${KAFKA_VERSION} == ${UNKNOWN_VERSION} ||
+            ${KAFKA_MAJOR_VERSION} -lt ${MIN_KAFKA_MAJOR_VERSION_WITH_SENTRY} ||
+            ${KAFKA_MAJOR_VERSION} -eq ${MIN_KAFKA_MAJOR_VERSION_WITH_SENTRY} &&
+              ${KAFKA_MINOR_VERSION} -lt ${MIN_KAFKA_MINOR_VERSION_WITH_SENTRY} ]]; then
+        echo "WARNING: Kafka version '${KAFKA_VERSION}' does not support Kafka Sentry integration. Ignoring Sentry configuration."
+      else
+        echo "authorizer.class.name=org.apache.sentry.kafka.authorizer.SentryKafkaAuthorizer" >> $CONF_DIR/kafka.properties
+        echo "sentry.kafka.site.url=file:$CONF_DIR/sentry-conf/sentry-site.xml" >> $CONF_DIR/kafka.properties
+        echo "sentry.kafka.principal.hostname=${HOST}" >> $CONF_DIR/kafka.properties
+        echo "sentry.kafka.kerberos.principal=${KAFKA_PRINCIPAL}" >> $CONF_DIR/kafka.properties
+        echo "sentry.kafka.keytab.file=${KEYTAB_FILE}" >> $CONF_DIR/kafka.properties
+        if [[ -n ${SUPER_USERS} ]]; then
+          echo "super.users=User:"${SUPER_USERS//;/;User:} >> $CONF_DIR/kafka.properties
+        fi
+      fi
+    fi
+fi
 
 # Set LOG_DIR to pwd as this directory exists and hence the underlaying run-kafka-class.sh won't try to create a new directory inside the parcel
 export LOG_DIR=`pwd`
