@@ -2,7 +2,7 @@
   "name" : "KMS",
   "label" : "Java KeyStore KMS",
   "description" : "The Hadoop Key Management Service with file-based Java KeyStore. Maintains a single copy of keys, using simple password-based protection. Requires CDH 5.3+. <span class=\"error\">Not recommended for production use.</span>",
-  "version" : "5.8.0",
+  "version" : "5.12.0",
   "runAs" : {
     "user" : "kms",
     "group" : "kms"
@@ -44,6 +44,7 @@
       "name" : "KMS",
       "label" : "Key Management Server",
       "pluralLabel" : "Key Management Servers",
+      "jvmBased" : "true",
       "startRunner" : {
         "program" : "scripts/control.sh",
         "args" : [
@@ -54,12 +55,16 @@
           "KMS_HTTP_PORT" : "${kms_http_port}",
           "KMS_ADMIN_PORT" : "${kms_admin_port}",
           "KMS_MAX_THREADS" : "${kms_max_threads}",
+          "KMS_PROTOCOL" : "${kms_protocol}",
+          "KMS_ACCEPT_COUNT" : "${kms_accept_count}",
+          "KMS_ACCEPTOR_THREAD_COUNT" : "${kms_acceptor_thread_count}",
           "KMS_HEAP_SIZE" : "${kms_heap_size}",
           "KMS_LOG" : "${log_dir}", // sets the KMS log dir
           "SSL_ENABLED" : "${ssl_enabled}",
           "KMS_SSL_KEYSTORE_FILE" : "${ssl_server_keystore_location}",
           "KMS_SSL_KEYSTORE_PASS" : "${ssl_server_keystore_password}",
-          "KMS_JKS_PASSWORD" : "${hadoop_security_keystore_javaKeyStoreProvider_hidden_password}"
+          "KMS_JKS_PASSWORD" : "${hadoop_security_keystore_javaKeyStoreProvider_hidden_password}",
+          "KMS_JAVA_OPTS": "${kms_java_opts}"
         }
       },
       "topology" : {
@@ -148,6 +153,31 @@
           "default" : "250"
         },
         {
+          "name" : "kms_protocol",
+          "label" : "KMS Handler Protocol",
+          "description" : "<p>The Tomcat handler protocol. The default HTTP/1.1 handler is a thread-per-request model.</p><p>This configuration is only supported in CDH 5.11 and up.</p>",
+          "type" : "string_enum",
+          "validValues" : ["HTTP/1.1", "org.apache.coyote.http11.Http11NioProtocol"],
+          "default" : "HTTP/1.1"
+        },
+        {
+          "name" : "kms_accept_count",
+          "label" : "KMS Accept Count",
+          "description" : "<p>The maximum queue length for incoming connection requests when all possible request processing threads are in use. Any requests received when the queue is full will be refused.</p><p>This configuration is only supported in CDH 5.11 and up.</p>",
+          "type" : "long",
+          "min" : "1",
+          "default" : "500"
+        },
+        {
+          "name" : "kms_acceptor_thread_count",
+          "label" : "KMS Acceptor Thread Count",
+          "description" : "<p>The number of threads to be used to accept connections. Increase this value on a multi CPU machine, although you would never really need more than 2. Also, with a lot of non keep alive connections, you might want to increase this value as well.</p><p>This setting only works with Tomcat's NIO handler protocol.</p><p>This configuration is only supported in CDH 5.11 and up.</p>",
+          "type" : "long",
+          "min" : "1",
+          "softMax" : "2",
+          "default" : "1"
+        },
+        {
           "name" : "kms_heap_size",
           "label" : "KMS Heap Size",
           "description" : "Maximum heap size of the KMS.",
@@ -157,6 +187,13 @@
           "min" : 67108864,
           "default" : 1073741824,
           "scaleFactor" : "1.3"
+        },
+        {
+          "name": "kms_java_opts",
+          "label": "Additional Java Configuration Options for KMS",
+          "description": "These arguments will be passed as part of the Java command line. Commonly, garbage collection flags, PermGen, or extra debugging flags would be passed here.",
+          "type": "string",
+          "default": ""
         },
         {
           // Note that the name and configName differ here, since we munge the
