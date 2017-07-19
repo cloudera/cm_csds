@@ -17,7 +17,7 @@
   "name" : "SQOOP_CLIENT",
   "label" : "Sqoop 1 Client",
   "description" : "Configuration and connector management for Sqoop 1.",
-  "version" : "5.8.0",
+  "version" : "5.12.0",
   "compatibility" : { "cdhVersion" : { "min" : "5", "max" : "5" } },
   "runAs" : {
     "user" : "root",
