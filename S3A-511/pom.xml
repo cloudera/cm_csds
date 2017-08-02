@@ -1,0 +1,73 @@
+<!--
+  Licensed to Cloudera, Inc. under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  Cloudera, Inc. licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.cloudera</groupId>
+    <artifactId>csd</artifactId>
+    <version>5.12.0</version>
+  </parent>
+
+  <groupId>com.cloudera.csd</groupId>
+  <artifactId>S3A-511</artifactId>
+  <version>5.12.0</version>
+  <name>Amazon Web Services - S3 5.11 CSD</name>
+  <description>
+    Provides object store capabilities for S3, using the S3A protocol.
+    Note that while nothing prevents users from using protocols other than "s3a",
+    the assumption of s3a is determined specifically by the emitted properties
+    going into core-site.xml
+  </description>
+  <packaging>pom</packaging>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <appendAssemblyId>false</appendAssemblyId>
+          <descriptors>
+            <descriptor>../assembly.xml</descriptor>
+          </descriptors>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.cloudera.enterprise</groupId>
+        <artifactId>schema-validator-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>validate-schema</id>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+   </build>
+</project>
+
