@@ -2,7 +2,7 @@
   "name" : "KMS",
   "label" : "Java KeyStore KMS",
   "description" : "The Hadoop Key Management Service with file-based Java KeyStore. Maintains a single copy of keys, using simple password-based protection. Requires CDH 5.3+. <span class=\"error\">Not recommended for production use.</span>",
-  "version" : "5.12.0",
+  "version" : "5.13.0",
   "runAs" : {
     "user" : "kms",
     "group" : "kms"
@@ -124,7 +124,16 @@
         {
           "key" : "log4j.logger.com.sun.jersey.server.wadl.generators.WadlGeneratorJAXBGrammarGenerator",
           "value" : "OFF"
-        }
+        },
+         // make zookeeper log level an explicit config, and not changing with rootLogger.
+         {
+           "key" : "log4j.logger.org.apache.zookeeper",
+           "value" : "INFO"
+         },
+         {
+           "key" : "log4j.logger.org.apache.curator",
+           "value" : "INFO"
+         }
         ]
       },
       "parameters" : [
