@@ -5,13 +5,13 @@
   <parent>
     <groupId>com.cloudera</groupId>
     <artifactId>enterprise</artifactId>
-    <version>5.12.0</version>
+    <version>5.13.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>5.12.0</version>
+  <version>5.13.0</version>
   <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
@@ -60,7 +60,7 @@
                MDL files in the src directory. -->
           <groupId>com.cloudera.enterprise</groupId>
           <artifactId>schema-validator-maven-plugin</artifactId>
-          <version>5.12.0</version>
+          <version>5.13.0</version>
           <executions>
             <execution>
               <id>validate-schema</id>
