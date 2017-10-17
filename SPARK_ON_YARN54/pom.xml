@@ -22,12 +22,12 @@
   <parent>
     <groupId>com.cloudera</groupId>
     <artifactId>csd</artifactId>
-    <version>5.12.0</version>
+    <version>5.13.0</version>
   </parent>
 
   <groupId>com.cloudera.csd</groupId>
   <artifactId>SPARK_ON_YARN54</artifactId>
-  <version>5.12.0</version>
+  <version>5.13.0</version>
   <name>The Spark on YARN 54 CSD</name>
   <packaging>pom</packaging>
 
