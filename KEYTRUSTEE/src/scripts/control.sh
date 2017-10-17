@@ -102,19 +102,45 @@ if [ "$SSL_ENABLED" = "true" -a \( -z "$KMS_SSL_KEYSTORE_FILE" -o -z "$KMS_SSL_K
     exit 1
 fi
 
+#turn back on the logging
+set -x
+
 # Get Parcel Root to fix Key Trustee configuration directory location
 PARCEL_ROOT=${KEYTRUSTEE_KP_HOME%%KEYTRUSTEE*}
 echo "PARCEL_ROOT is ${PARCEL_ROOT}"
 
+MIN_CDH_MAJOR_VERSION_WITH_BLANK_TRUSTSTORE_PWD=5
+MIN_CDH_MINOR_VERSION_WITH_BLANK_TRUSTSTORE_PWD=10
+UNKNOWN_VERSION="unknown version"
+
+if [[ ! -f $KMS_HOME/cloudera/cdh_version.properties ]]; then
+  CDH_VERSION=$UNKNOWN_VERSION
+  CDH_MAJOR_VERSION=5
+  CDH_MINOR_VERSION=4
+  echo "$KMS_HOME/cloudera/cdh_version.properties not found. Assuming older version of CDH is being used."
+else
+  # example first line of version file: version=2.6.0-cdh5.9.3
+  CDH_VERSION=$(grep "^version=" $KMS_HOME/cloudera/cdh_version.properties | cut -d '=' -f 2)
+  CDH_MAJOR_VERSION=$(echo $CDH_VERSION | cut -d '-' -f 2 | sed 's/cdh//g' | cut -d '.' -f 1)
+  CDH_MINOR_VERSION=$(echo $CDH_VERSION | cut -d '-' -f 2 | sed 's/cdh//g' | cut -d '.' -f 2)
+  echo "CDH version found: ${CDH_VERSION}"
+fi
+
 # Setup Tomcat Truststore options
-export CATALINA_OPTS="$CATALINA_OPTS -Djavax.net.ssl.trustStore=${KMS_SSL_TRUSTSTORE_FILE} -Djavax.net.ssl.trustStorePassword=${KMS_SSL_TRUSTSTORE_PASS} -Dcdh.parcel.root=${PARCEL_ROOT}"
-CATALINA_OPTS_DISP=`echo ${CATALINA_OPTS} | sed -e 's/trustStorePassword=[^ ]*/trustStorePassword=***/'`
-
-#turn back on the logging
-set -x
-
-print "Using   CATALINA_OPTS:       ${CATALINA_OPTS_DISP}"
-
+if [[ ${CDH_VERSION} == ${UNKNOWN_VERSION} || \
+      ${CDH_MAJOR_VERSION} -lt ${MIN_CDH_MAJOR_VERSION_WITH_BLANK_TRUSTSTORE_PWD} || \
+      ${CDH_MAJOR_VERSION} -eq ${MIN_CDH_MAJOR_VERSION_WITH_BLANK_TRUSTSTORE_PWD} && \
+         ${CDH_MINOR_VERSION} -lt ${MIN_CDH_MINOR_VERSION_WITH_BLANK_TRUSTSTORE_PWD} ]]; then
+  set +x
+  export CATALINA_OPTS="$CATALINA_OPTS -Djavax.net.ssl.trustStore=${KMS_SSL_TRUSTSTORE_FILE} -Djavax.net.ssl.trustStorePassword=${KMS_SSL_TRUSTSTORE_PASS} -Dcdh.parcel.root=${PARCEL_ROOT}"
+  CATALINA_OPTS_DISP=`echo ${CATALINA_OPTS} | sed -e 's/trustStorePassword=[^ ]*/trustStorePassword=***/'`
+  #turn back on the logging
+  set -x
+  print "Using   CATALINA_OPTS:       ${CATALINA_OPTS_DISP}"
+else
+  export CATALINA_OPTS="$CATALINA_OPTS -Djavax.net.ssl.trustStore=${KMS_SSL_TRUSTSTORE_FILE} -Dcdh.parcel.root=${PARCEL_ROOT}"
+  print "Using   CATALINA_OPTS:       ${CATALINA_OPTS}"
+fi
 
 KMS_PLUGIN_DIR=${KEYTRUSTEE_KP_HOME:-/usr/share/keytrustee-keyprovider}/lib
 

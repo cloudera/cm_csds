@@ -2,7 +2,7 @@
   "name" : "KEYTRUSTEE",
   "label" : "Key Trustee KMS",
   "description" : "The Hadoop Key Management Service backed by Cloudera Navigator Key Trustee Server for enterprise-grade key storage and protection. Requires CDH 5.3+ and existing Key Trustee Servers. <span class=\"error\">Before adding this service, ensure that you have installed the Key Trustee binaries, which are not included in CDH.</span>",
-  "version" : "5.12.0",
+  "version" : "5.13.0",
   "licenseFeature" : "KEYTRUSTEE",
   "runAs" : {
     "user" : "kms",
@@ -174,6 +174,15 @@
         {
           "key" : "log4j.logger.com.sun.jersey.server.wadl.generators.WadlGeneratorJAXBGrammarGenerator",
           "value" : "OFF"
+        },
+        // make zookeeper log level an explicit config, and not changing with rootLogger.
+        {
+          "key" : "log4j.logger.org.apache.zookeeper",
+          "value" : "INFO"
+        },
+        {
+          "key" : "log4j.logger.org.apache.curator",
+          "value" : "INFO"
         }
         ]
       },
