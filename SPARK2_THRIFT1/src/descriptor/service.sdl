@@ -53,7 +53,7 @@
 			"label": "Kerberos Security Realm",
 			"description": "The realm to use for Kerberos security.",
 			"type": "string",
-			"default": "NOKIA.COM",
+			"default": "EXAMPLE.COM",
 			"configurableInWizard": true
 		},
 		{
