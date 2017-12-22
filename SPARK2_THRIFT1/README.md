@@ -8,3 +8,4 @@ Following are the dependancies before adding Spark2 TS1 service:
 5. To enable high availability for multiple Spark2 ThriftServer hosts, configure a load balancer to manage them  and enable the property sparkthrift.ha.enable to yes   and fill up the sparkthrift.loadbalancer.host and sparkthrift.loadbalancer.port property with respective values.
 6. The logs can be viewed at /var/log/sparkthrift
 7. The service runs as hive user and port 20000 by default
+8. Change the sparkthrift.cmd.opts property to --conf spark.eventLog.enabled=true --conf spark.eventLog.dir=hdfs://<namenode_hostname:8020 or NameNode Nameservice>/user/spark/spark2ApplicationHistory --conf spark.yarn.historyServer.address=http://<spark_history_server_hostname>:18089 if one needs to integrate with Spark History Server. Else one needs to create a local folder /tmp/spark-events on all the nodes where this service is installed and set the folder ownership to hive:hive recursively.
