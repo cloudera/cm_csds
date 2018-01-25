@@ -17,7 +17,7 @@
   "name" : "ACCUMULO16",
   "label" : "Accumulo",
   "description" : "The Apache Accumulo sorted, distributed key/value store is a robust, scalable, high performance data storage and retrieval system. This service only works with releases based on Apache Accumulo 1.6 or later.",
-  "version" : "5.13.0",
+  "version" : "5.14.0",
   "compatibility" : { "cdhVersion" : { "min" : "4", "max" : "5" } },
   "runAs" : {
     "user" : "accumulo",
