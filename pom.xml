@@ -2,42 +2,26 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>com.cloudera</groupId>
-    <artifactId>enterprise</artifactId>
-    <version>5.13.0</version>
-    <relativePath>../pom.xml</relativePath>
-  </parent>
-
   <groupId>com.cloudera</groupId>
   <artifactId>csd</artifactId>
-  <version>5.13.0</version>
+  <version>5.14.0</version>
   <name>The Enterprise CSDs</name>
   <packaging>pom</packaging>
 
   <modules>
     <module>ACCUMULO</module>
     <module>ACCUMULO16</module>
+    <module>ECHO</module>
+    <module>KAFKA</module>
+    <module>KEYTRUSTEE</module>
+    <module>KMS</module>
+    <module>S3A</module>
     <module>SPARK</module>
     <module>SPARK_ON_YARN</module>
-    <module>SPARK_ON_YARN5_10</module>
-    <module>SPARK_ON_YARN54</module>
     <module>SPARK_ON_YARN53</module>
+    <module>SPARK_ON_YARN54</module>
+    <module>SPARK_ON_YARN5_10</module>
     <module>SQOOP_CLIENT</module>
-    <module>ISILON</module>
-    <module>KMS</module>
-    <module>LUNA_KMS</module>
-    <module>THALES_KMS</module>
-    <module>KEYTRUSTEE</module>
-    <module>KEYTRUSTEE_SERVER</module>
-    <module>KAFKA</module>
-    <module>HIVE</module>
-    <module>HDFS</module>
-    <module>HUE</module>
-    <module>IMPALA</module>
-    <module>S3A</module>
-    <module>S3A-511</module>
-    <module>S3A-510</module>
   </modules>
 
   <build>
@@ -60,7 +44,7 @@
                MDL files in the src directory. -->
           <groupId>com.cloudera.enterprise</groupId>
           <artifactId>schema-validator-maven-plugin</artifactId>
-          <version>5.13.0</version>
+          <version>5.14.0</version>
           <executions>
             <execution>
               <id>validate-schema</id>

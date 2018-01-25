@@ -22,12 +22,12 @@
   <parent>
     <groupId>com.cloudera</groupId>
     <artifactId>csd</artifactId>
-    <version>5.13.0</version>
+    <version>5.14.0</version>
   </parent>
 
   <groupId>com.cloudera.csd</groupId>
   <artifactId>SPARK</artifactId>
-  <version>5.13.0</version>
+  <version>5.14.0</version>
   <name>The Spark CSD</name>
   <packaging>pom</packaging>
 
