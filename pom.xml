@@ -15,7 +15,6 @@
     <module>KAFKA</module>
     <module>KEYTRUSTEE</module>
     <module>KMS</module>
-    <module>S3A</module>
     <module>SPARK</module>
     <module>SPARK_ON_YARN</module>
     <module>SPARK_ON_YARN53</module>
