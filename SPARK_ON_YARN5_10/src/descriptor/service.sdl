@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.13.0",
+  "version" : "5.14.0",
   "compatibility" : { "cdhVersion" : { "min" : "5.5.0", "max" : "5.11" } },
   "runAs" : {
     "user" : "spark",
