@@ -2,7 +2,7 @@
   "name" : "KEYTRUSTEE",
   "label" : "Key Trustee KMS",
   "description" : "The Hadoop Key Management Service backed by Cloudera Navigator Key Trustee Server for enterprise-grade key storage and protection. Requires CDH 5.3+ and existing Key Trustee Servers. <span class=\"error\">Before adding this service, ensure that you have installed the Key Trustee binaries, which are not included in CDH.</span>",
-  "version" : "5.13.0",
+  "version" : "5.14.0",
   "licenseFeature" : "KEYTRUSTEE",
   "runAs" : {
     "user" : "kms",
@@ -255,16 +255,13 @@
           "default": ""
         },
         {
-          // Note that the name and configName differ here, since we munge the
-          // path provided by the user into the actual config, which is a URI
           "name" : "hadoop_security_key_provider_dir",
-          "label" : "Key Trustee KeyStoreProvider Directory",
-          "description" : "Directory to the keystore file used by Key Trustee KeyStoreProvider that backs the KMS.",
+          "label" : "Key Trustee Backup Directory",
+          "description" : "Directory where backups of the KTS configuration and database are stored.",
           "required" : "true",
-          "configName" : "hadoop.kms.key.provider.uri",
           "type" : "path",
           "pathType" : "localDataDir",
-	  "configurableInWizard" : true,
+          "configurableInWizard" : true,
           "mode" : "0700",
           "default" : "/var/lib/kms-keytrustee"
         },
@@ -664,15 +661,15 @@
               },
               {
                 "key" : "keytrustee.kms.acl.UNDELETE",
-                "value" : "*"
+                "value" : " "
               },
               {
                 "key" : "keytrustee.kms.acl.PURGE",
-                "value" : "*"
+                "value" : " "
               },
               {
                 "key" : "default.key.acl.MIGRATE",
-                "value" : "*"
+                "value" : " "
               }
             ]
           },
