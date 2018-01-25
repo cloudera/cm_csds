@@ -17,7 +17,7 @@
   "name" : "SPARK_ON_YARN",
   "label" : "Spark",
   "description" : "Apache Spark is an open source cluster computing system. This service runs Spark as an application on YARN.",
-  "version" : "5.13.0",
+  "version" : "5.14.0",
   "compatibility" : { "cdhVersion" : { "min" : "5.11.0" } },
   "runAs" : {
     "user" : "spark",
@@ -190,7 +190,8 @@
       "externalLink" : {
         "name" : "history_server_web_ui",
         "label" : "History Server Web UI",
-        "url" : "http://${host}:${history_server_web_port}"
+        "url" : "http://${host}:${history_server_web_port}",
+        "secureUrl" : "https://${host}:${ssl_server_port}"
       },
       "topology" : { "minInstances" : 1, "maxInstances" : 1 },
       "logging" : {

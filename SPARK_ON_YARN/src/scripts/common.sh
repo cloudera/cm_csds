@@ -340,7 +340,13 @@ function start_history_server {
       echo "$FILTER_CONF_KEY.type=kerberos" >> "$CONF_FILE"
       echo "$FILTER_CONF_KEY.kerberos.principal=$SPNEGO_PRINCIPAL" >> "$CONF_FILE"
       echo "$FILTER_CONF_KEY.kerberos.keytab=spark_on_yarn.keytab" >> "$CONF_FILE"
-      echo "$FILTER_CONF_KEY.kerberos.name.rules=DEFAULT" >> "$CONF_FILE"
+
+      # This config may contain new line characters, so it needs to be handled in a special way.
+      # To preserve new lines in Java properties files, they have to be replaced with the unicode
+      # escape sequence.
+      local AUTH_TO_LOCAL=$(get_hadoop_conf "$HADOOP_CONF_DIR" "hadoop.security.auth_to_local" | \
+        awk '{printf "%s\\u000A", $0}')
+      echo "$FILTER_CONF_KEY.kerberos.name.rules=$AUTH_TO_LOCAL" >> "$CONF_FILE"
 
       # Also enable ACLs in the History Server, otherwise auth is not very useful.
       echo "spark.history.ui.acls.enable=true" >> "$CONF_FILE"
