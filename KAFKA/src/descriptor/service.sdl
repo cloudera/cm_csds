@@ -438,6 +438,11 @@
         "truststorePasswordConfigName" : "ssl.truststore.password.generator",
         "truststorePasswordScriptBased" : true
       },
+      "healthAggregation" : {
+        "type" : "nonSingleton",
+        "percentGreenForGreen" : 94.99,
+        "percentYellowGreenForYellow" : 49.99
+      },
       "logging": {
         "dir": "/var/log/kafka",
         "filename": "kafka-broker-${host}.log",
@@ -540,6 +545,34 @@
           }
         ]
       },
+      "healthTests": [
+        {
+          "type": "metric",
+          "name": "OFFLINE_PARTITIONS",
+          "label": "Offline Partitions Test",
+          "description": "This health test checks the most recent value of kafka_offline_partitions metric and alerts if there's any.",
+          "metric": "kafka_offline_partitions",
+          "timeWindowSec": 300,
+          "comparisonOperator": "gte",
+          "aggregationFunction": "last",
+          "greenMessage": "No offline partitions.",
+          "redThreshold": 1,
+          "redMessage": "There are ${metric.value} offline partitions!"
+        },
+        {
+          "type": "metric",
+          "name": "LAGGING_REPLICAS",
+          "label": "Lagging Replicas Test",
+          "description": "This health test checks the most recent value of kafka_under_replicated_partitions and warns if there's any.",
+          "metric": "kafka_under_replicated_partitions",
+          "timeWindowSec": 300,
+          "comparisonOperator": "gte",
+          "aggregationFunction": "last",
+          "greenMessage": "No lagging replicas.",
+          "yellowThreshold": 1,
+          "yellowMessage": "There are ${metric.value} lagging replicas."
+        }
+      ],
       "parameters": [
         {
           "name": "broker.id",
