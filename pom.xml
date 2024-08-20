@@ -21,6 +21,7 @@
     <module>SPARK_ON_YARN54</module>
     <module>SPARK_ON_YARN5_10</module>
     <module>SQOOP_CLIENT</module>
+    <module>ZEPPELIN</module>
   </modules>
 
   <build>
