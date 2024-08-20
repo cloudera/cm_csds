@@ -1,0 +1,282 @@
+{
+  "interpreterSettings": {
+    "angular": {
+      "id": "angular",
+      "name": "angular",
+      "group": "angular",
+      "properties": {},
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "angular",
+          "class": "org.apache.zeppelin.angular.AngularInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "editOnDblClick": true,
+            "completionSupport": false
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "livy": {
+      "id": "livy",
+      "name": "livy",
+      "group": "livy",
+      "properties": {
+        "livy.spark.executor.instances": {
+          "name": "livy.spark.executor.instances",
+          "value": "",
+          "type": "number"
+        },
+        "livy.spark.dynamicAllocation.cachedExecutorIdleTimeout": {
+          "name": "livy.spark.dynamicAllocation.cachedExecutorIdleTimeout",
+          "value": "",
+          "type": "string"
+        },
+        "zeppelin.livy.concurrentSQL": {
+          "name": "zeppelin.livy.concurrentSQL",
+          "value": false,
+          "type": "checkbox"
+        },
+        "zeppelin.livy.url": {
+          "name": "zeppelin.livy.url",
+          "value": "http://localhost:8998",
+          "type": "url"
+        },
+        "zeppelin.livy.pull_status.interval.millis": {
+          "name": "zeppelin.livy.pull_status.interval.millis",
+          "value": "1000",
+          "type": "number"
+        },
+        "livy.spark.executor.memory": {
+          "name": "livy.spark.executor.memory",
+          "value": "",
+          "type": "string"
+        },
+        "zeppelin.livy.restart_dead_session": {
+          "name": "zeppelin.livy.restart_dead_session",
+          "value": false,
+          "type": "checkbox"
+        },
+        "livy.spark.dynamicAllocation.enabled": {
+          "name": "livy.spark.dynamicAllocation.enabled",
+          "value": false,
+          "type": "checkbox"
+        },
+        "zeppelin.livy.maxLogLines": {
+          "name": "zeppelin.livy.maxLogLines",
+          "value": "1000",
+          "type": "number"
+        },
+        "livy.spark.dynamicAllocation.minExecutors": {
+          "name": "livy.spark.dynamicAllocation.minExecutors",
+          "value": "",
+          "type": "number"
+        },
+        "livy.spark.executor.cores": {
+          "name": "livy.spark.executor.cores",
+          "value": "",
+          "type": "number"
+        },
+        "zeppelin.livy.session.create_timeout": {
+          "name": "zeppelin.livy.session.create_timeout",
+          "value": "120",
+          "type": "number"
+        },
+        "zeppelin.livy.spark.sql.maxResult": {
+          "name": "zeppelin.livy.spark.sql.maxResult",
+          "value": "1000",
+          "type": "number"
+        },
+        "livy.spark.driver.cores": {
+          "name": "livy.spark.driver.cores",
+          "value": "",
+          "type": "number"
+        },
+        "livy.spark.jars.packages": {
+          "name": "livy.spark.jars.packages",
+          "value": "",
+          "type": "textarea"
+        },
+        "zeppelin.livy.spark.sql.field.truncate": {
+          "name": "zeppelin.livy.spark.sql.field.truncate",
+          "value": true,
+          "type": "checkbox"
+        },
+        "livy.spark.driver.memory": {
+          "name": "livy.spark.driver.memory",
+          "value": "",
+          "type": "string"
+        },
+        "zeppelin.livy.displayAppInfo": {
+          "name": "zeppelin.livy.displayAppInfo",
+          "value": false,
+          "type": "checkbox"
+        },
+        "zeppelin.livy.principal": {
+          "name": "zeppelin.livy.principal",
+          "value": "",
+          "type": "string"
+        },
+        "zeppelin.livy.keytab": {
+          "name": "zeppelin.livy.keytab",
+          "value": "",
+          "type": "textarea"
+        },
+        "livy.spark.dynamicAllocation.maxExecutors": {
+          "name": "livy.spark.dynamicAllocation.maxExecutors",
+          "value": "",
+          "type": "number"
+        },
+        "livy.spark.dynamicAllocation.initialExecutors": {
+          "name": "livy.spark.dynamicAllocation.initialExecutors",
+          "value": "",
+          "type": "number"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "spark",
+          "class": "org.apache.zeppelin.livy.LivySparkInterpreter",
+          "defaultInterpreter": true,
+          "editor": {
+            "language": "scala",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        },
+        {
+          "name": "sql",
+          "class": "org.apache.zeppelin.livy.LivySparkSQLInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "sql",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        },
+        {
+          "name": "pyspark",
+          "class": "org.apache.zeppelin.livy.LivyPySparkInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "python",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        },
+        {
+          "name": "sparkr",
+          "class": "org.apache.zeppelin.livy.LivySparkRInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "r",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        },
+        {
+          "name": "shared",
+          "class": "org.apache.zeppelin.livy.LivySharedInterpreter",
+          "defaultInterpreter": false
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "perNote": "shared",
+        "perUser": "scoped",
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "md": {
+      "id": "md",
+      "name": "md",
+      "group": "md",
+      "properties": {
+        "markdown.parser.type": {
+          "name": "markdown.parser.type",
+          "value": "flexmark",
+          "type": "string"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "md",
+          "class": "org.apache.zeppelin.markdown.Markdown",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "markdown",
+            "editOnDblClick": true,
+            "completionSupport": false
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    }
+  },
+  "interpreterBindings": {},
+  "interpreterRepositories": [
+    {
+      "id": "central",
+      "type": "default",
+      "url": "http://repo1.maven.org/maven2/",
+      "releasePolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "snapshotPolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "mirroredRepositories": [],
+      "repositoryManager": false
+    },
+    {
+      "id": "local",
+      "type": "default",
+      "url": "file:///var/lib/zeppelin/.m2/repository",
+      "releasePolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "snapshotPolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "mirroredRepositories": [],
+      "repositoryManager": false
+    }
+  ]
+}

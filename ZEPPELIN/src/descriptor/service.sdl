@@ -1,0 +1,568 @@
+// Licensed to Cloudera, Inc. under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  Cloudera, Inc. licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+{
+  "name": "ZEPPELIN",
+  "label": "Zeppelin",
+  "description": "<span class=\"error\"> Note: Zeppelin is now deprecated and would be removed soon. Users are advised to install and use zeppelin at their own risk! </span>  Apache Zeppelin is a web-based notebook that enables data-driven, interactive data analytics and collaborative documents with SQL, Scala and more.",
+  "version": "7.13.1",
+  "compatibility": {
+    "cdhVersion": {
+      "min": "7.3.1"
+    }
+  },
+  "runAs": {
+    "user": "zeppelin",
+    "group": "zeppelin",
+    "principal": "zeppelin"
+  },
+  "inExpressWizard": true,
+  "svgIcon": "images/icon.svg",
+  "parcel": {
+    "requiredTags": [
+      "cdh"
+    ]
+  },
+  "serviceDependencies": [
+    {
+      "name": "YARN",
+      "required": "true"
+    },
+    {
+      "name": "HDFS",
+      "required": "true"
+    },
+    {
+      "name": "KNOX",
+      "required": "false"
+    },
+    {
+      "name": "LIVY",
+      "required": "false"
+    },
+    {
+      "name": "LIVY_FOR_SPARK3",
+      "required": "false"
+    }
+  ],
+  "dependencyExtensions" : [
+      {
+        "type" : "clusterInfo",
+        "extensionId": "cluster_info"
+      }
+    ],
+  "kerberos": "${zeppelin.authentication.method.kerberos}",
+  "parameters": [
+    {
+      "name": "zeppelin.authentication.method.kerberos",
+      "label": "Zeppelin Authentication Method",
+      "description": "Indicates whether Kerberos is enabled.",
+      "type": "boolean",
+      "default": "false",
+      "configurableInWizard": true
+    }
+  ],
+  "rolesWithExternalLinks": [
+    "ZEPPELIN_SERVER"
+  ],
+  "roles": [
+    {
+      "name": "ZEPPELIN_SERVER",
+      "label": "Zeppelin Server",
+      "pluralLabel": "Zeppelin Servers",
+      "jvmBased": true,
+      "startRunner": {
+        "program": "scripts/control.sh",
+        "args": [
+          "start_zeppelin_server"
+        ],
+        "environmentVariables": {
+          "KNOX_SERVICE": "${dependency:KNOX}",
+          "ZEPPELIN_INTERPRETER_CONFIG_DIR": "${zeppelin.config.fs.dir}",
+          "ZEPPELIN_LOGFILE": "zeppelin-${user}-${host}.log",
+          "shiro_user_block": "${zeppelin.shiro.user.block}",
+          "shiro_main_block": "${zeppelin.shiro.main.block}",
+          "shiro_knox_main_block":"${zeppelin.shiro.knox.main.block}",
+          "shiro_main_session_block":"${zeppelin.shiro.main.session.block}",
+          "shiro_roles_block": "${zeppelin.shiro.roles.block}",
+          "shiro_urls_block": "${zeppelin.shiro.urls.block}",
+          "zeppelin_admin_group": "${zeppelin.admin.group}"
+        }
+      },
+      "commands": [
+        {
+          "name": "InitializeZeppelinNotebookRole",
+          "label": "Initialize Zeppelin Notebook",
+          "description": "Initialize and copy Zeppelin notebooks.",
+          "expectedExitCodes": [
+            0
+          ],
+          "requiredRoleState": "stopped",
+          "commandRunner": {
+            "program": "scripts/control.sh",
+            "args": [
+              "gen_client_conf"
+            ],
+            "environmentVariables": {
+              "zeppelin_notebook_storage": "${zeppelin.notebook.storage}",
+              "zeppelin_notebook_dir": "${zeppelin.notebook.dir}"
+            }
+          }
+        }
+      ],
+      "externalLink": {
+        "name": "zeppelin_server_web_ui",
+        "label": "Zeppelin Server Web UI",
+        "url": "http://${host}:${zeppelin_server_port}",
+        "secureUrl": "https://${host}:${zeppelin_server_ssl_port}"
+      },
+      "topology": {
+        "minInstances": 1,
+        "maxInstances": 1
+      },
+      "sslServer" : {
+        "keystoreFormat" : "jks",
+        "keyIdentifier" : "zeppelin",
+        "enabledConfigName" : "zeppelin.ssl",
+        "keystoreLocationConfigName" : "zeppelin.ssl.keystore.path",
+        "keystorePasswordConfigName" : "zeppelin.ssl.keystore.password",
+        "keystorePasswordCredentialProviderCompatible" : false,
+        "keystorePasswordScriptBased" : false,
+        "autoTlsMode" : "auto"
+      },
+      "sslClient" : {
+        "truststoreLocationConfigName" : "zeppelin.ssl.truststore.path",
+        "truststorePasswordConfigName" : "zeppelin.ssl.truststore.password",
+        "truststorePasswordCredentialProviderCompatible" : false,
+        "truststorePasswordScriptBased" : false
+      },
+      "logging": {
+        "configFilename": "zeppelin-conf/log4j.properties",
+        "dir": "/var/log/zeppelin",
+        "filename": "${zeppelin_log_file}",
+        "modifiable": true,
+        "loggingType": "log4j"
+      },
+      "parameters": [
+        {
+          "name": "zeppelin_server_port",
+          "description": "The port of the Zeppelin server.",
+          "default": 8885,
+          "label": "Zeppelin Server Port",
+          "configName": "zeppelin.server.port",
+          "type": "port"
+        },
+        {
+          "name": "zeppelin_server_ssl_port",
+          "description": "The SSL port of the Zeppelin server.",
+          "default": 8886,
+          "label": "Zeppelin Server SSL Port",
+          "configName": "zeppelin.server.ssl.port",
+          "type": "port"
+        },
+        {
+          "name": "zeppelin.server.addr",
+          "description": "Zeppelin server bind address.",
+          "default": "0.0.0.0",
+          "label": "Zeppelin Server Bind Address",
+          "configName": "zeppelin.server.addr",
+          "type": "uri"
+        },
+        {
+          "name" : "zeppelin_home_dir",
+          "label" : "Zeppelin Home Directory",
+          "description" : "Directory where zeppelin stores configurations and notebooks.",
+          "default" : "/var/lib/zeppelin",
+          "type" : "path",
+          "pathType" : "localDataDir",
+          "mode" : "0755"
+        },
+        {
+          "name": "zeppelin.war.tempdir",
+          "description": "Location of jetty temporary directory.",
+          "default": "/var/lib/zeppelin/webapps",
+          "label": "Zeppelin Temporary Webapps Directory",
+          "configName": "zeppelin.war.tempdir",
+          "type": "path",
+          "pathType": "localDataDir"
+        },
+        {
+          "name": "zeppelin_log_file",
+          "description": "Zeppelin dynamically pass the log filename for server and interpreters using this parameter value. Don't change the default value",
+          "default": "${zeppelin.log.file}",
+          "label": "Zeppelin logs file Name",
+          "configName": "zeppelin.log.file",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.notebook.dir",
+          "description": "Path or URI for notebook persist.",
+          "default": "file:///var/lib/zeppelin/notebook",
+          "label": "Zeppelin Notebook Location",
+          "configName": "zeppelin.notebook.dir",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.notebook.storage",
+          "description": "Versioned notebook persistence layer implementation.",
+          "default": "org.apache.zeppelin.notebook.repo.FileSystemNotebookRepo",
+          "label": "Zeppelin Notebook Storage Class",
+          "configName": "zeppelin.notebook.storage",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.config.storage.class",
+          "description": "Configuration persistence layer implementation.",
+          "default": "org.apache.zeppelin.storage.FileSystemConfigStorage",
+          "label": "Zeppelin Configuration Storage Class",
+          "configName": "zeppelin.config.storage.class",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.config.fs.dir",
+          "description": "Location of configuration file.",
+          "default": "file:///var/lib/zeppelin/conf",
+          "label": "Zeppelin Interpreter Configuration Location",
+          "configName": "zeppelin.config.fs.dir",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.interpreter.localRepo",
+          "description": "Local repository for interpreter's additional dependency loading.",
+          "default": "/var/lib/zeppelin/local-repo",
+          "label": "Zeppelin Local Repository Location",
+          "configName": "zeppelin.interpreter.localRepo",
+          "type": "path",
+          "pathType": "localDataDir"
+        },
+        {
+          "name": "zeppelin.dep.localrepo",
+          "description": "Local repository for dependency loader.",
+          "default": "/var/lib/zeppelin/local-repo",
+          "label": "Zeppelin Local Repository Location",
+          "configName": "zeppelin.dep.localrepo",
+          "type": "path",
+          "pathType": "localDataDir"
+        },
+        {
+          "name": "zeppelin.interpreter.group.order",
+          "description": "Zeppelin interpreter group order.",
+          "default": "livy,md,angular,sh,jdbc,spark",
+          "label": "Zeppelin Interpreter Group Order",
+          "configName": "zeppelin.interpreter.group.order",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.anonymous.allowed",
+          "description": "Anonymous user allowed by default.",
+          "default": "false",
+          "label": "Zeppelin Anonymous",
+          "configName": "zeppelin.anonymous.allowed",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.notebook.public",
+          "description": "Make notebook public by default when created, private otherwise.",
+          "default": "false",
+          "label": "Zeppelin Notebook Public Access",
+          "configName": "zeppelin.notebook.public",
+          "type": "boolean"
+        },
+        {
+          "name": "zeppelin.websocket.max.text.message.size",
+          "description": "Size in characters of the maximum text message to be received by websocket.",
+          "default": "1024000",
+          "label": "Zeppelin Websocket Text Size",
+          "configName": "zeppelin.websocket.max.text.message.size",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.ssl.client.auth",
+          "description": "Whether client authentication should be used for SSL connections.",
+          "default": "false",
+          "label": "Zeppelin SSL Client Authentication",
+          "configName": "zeppelin.ssl.client.auth",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.server.xframe.options",
+          "description": "The X-Frame-Options HTTP response header can be used to indicate whether or not a browser should be allowed to render a page in a frame/iframe/object. Value is in seconds, and the default value is equivalent to 20 years.",
+          "default": "SAMEORIGIN",
+          "label": "Zeppelin Server Xframe Option",
+          "configName": "zeppelin.server.xframe.options",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.server.strict.transport",
+          "description": "The HTTP Strict-Transport-Security response header is a security feature that lets a website tell browsers that it should only be communicated with using HTTPS, instead of using HTTP. Enable this when Zeppelin is running on HTTPS.",
+          "default": "max-age=631138519",
+          "label": "Zeppelin HTTP Strict-Transport-Security Response Header",
+          "configName": "zeppelin.server.strict.transport",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.server.xxss.protection",
+          "description": "The HTTP X-XSS-Protection response header is a feature of Internet Explorer, Chrome and Safari that stops pages from loading when they detect reflected cross-site scripting (XSS) attacks. When the value is set to 1 and a cross-site scripting attack is detected, the browser will sanitize the page.",
+          "default": "1; mode= block",
+          "label": "Zeppelin HTTP X-XSS-Protection Response Header",
+          "configName": "zeppelin.server.xxss.protection",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.server.xcontent.type.options",
+          "description": "The HTTP X-Content-Type-Options response header helps to prevent MIME type sniffing attacks. It directs the browser to honor the type specified in the Content-Type header, rather than trying to determine the type from the content itself. The default value \"nosniff\" is really the only meaningful value. This header is supported on all browsers except Safari and Safari on iOS.",
+          "default": "nosniff",
+          "label": "Zeppelin HTTP X-Content-Type-Options Response Header",
+          "configName": "zeppelin.server.xcontent.type.options",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.server.jetty.name",
+          "description": "Hardcoding application server name to prevent fingerprinting.",
+          "default": " ",
+          "label": "Zeppelin Application Server Name",
+          "configName": "zeppelin.server.jetty.name",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.helium.registry",
+          "description": "Zeppelin custom display system.",
+          "default": "/var/lib/zeppelin/conf/helium.json",
+          "label": "Zeppelin Custom Display System",
+          "configName": "zeppelin.helium.registry",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.ssl.keystore.type",
+          "description": "The format of the given keystore (e.g. JKS or PKCS12).",
+          "default": "jks",
+          "label": "Zeppelin SSL Keystore Type",
+          "configName": "zeppelin.ssl.keystore.type",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.ssl.truststore.type",
+          "description": "The format of the given truststore (e.g. JKS or PKCS12). Defaults to the same type as the keystore type.",
+          "default": "jks",
+          "label": "Zeppelin SSL Truststore Type",
+          "configName": "zeppelin.ssl.truststore.type",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.shiro.user.block",
+          "description": "Content of user block.",
+          "default": [
+          ],
+          "label": "Zeppelin Shiro User Block",
+          "configName": "zeppelin.shiro.user.block",
+          "separator" : "\n",
+          "type": "string_array"
+        },
+        {
+          "name": "zeppelin.shiro.main.block",
+          "description": "Content of main block.",
+          "default": [
+            "pamRealm=org.apache.zeppelin.realm.PamRealm",
+            "pamRealm.service=login"
+          ],
+          "label": "Zeppelin Shiro Main Block",
+          "configName": "zeppelin.shiro.main.block",
+          "separator" : "\n",
+          "type": "string_array"
+        },
+        {
+          "name": "zeppelin.shiro.knox.main.block",
+          "description": "Knox configuration for main block.",
+          "default": [
+            "krbRealm = org.apache.zeppelin.realm.kerberos.KerberosRealm",
+            "krbRealm.principal={{SPNEGO_PRINCIPAL}}",
+            "krbRealm.keytab={{KEYTAB_FILE}}",
+            "krbRealm.nameRules=DEFAULT",
+            "krbRealm.signatureSecretFile={{CONF_DIR}}/http_secret",
+            "krbRealm.tokenValidity=36000",
+            "krbRealm.cookieDomain={{DOMAIN}}",
+            "krbRealm.cookiePath=/",
+            "authc = org.apache.zeppelin.realm.kerberos.KerberosAuthenticationFilter"
+          ],
+          "label": "Zeppelin Shiro Knox Main Block",
+          "configName": "zeppelin.shiro.knox.main.block",
+          "separator" : "\n",
+          "type": "string_array"
+        },
+        {
+          "name": "zeppelin.shiro.main.session.block",
+          "description": "Content of main session block.",
+          "default": [
+            "sessionManager = org.apache.shiro.web.session.mgt.DefaultWebSessionManager",
+            "cookie = org.apache.shiro.web.servlet.SimpleCookie",
+            "cookie.name = JSESSIONID",
+            "cookie.httpOnly = true",
+            "sessionManager.sessionIdCookie = $cookie",
+            "securityManager.sessionManager = $sessionManager",
+            "securityManager.sessionManager.globalSessionTimeout = 86400000",
+            "shiro.loginUrl = /api/login"
+          ],
+          "label": "Zeppelin Shiro Main Session Block",
+          "configName": "zeppelin.shiro.main.session.block",
+          "separator" : "\n",
+          "type": "string_array"
+        },
+        {
+          "name": "zeppelin.shiro.roles.block",
+          "description": "Content of roles block.",
+          "default": [
+          ],
+          "label": "Zeppelin Shiro Roles Block",
+          "configName": "zeppelin.shiro.roles.block",
+          "separator" : "\n",
+          "type": "string_array"
+        },
+        {
+          "name": "zeppelin.admin.group",
+          "description": "Admin group for Zeppelin.",
+          "default": "admins",
+          "label": "Admin Group",
+          "configName": "zeppelin.admin.group",
+          "type": "string"
+        },
+        {
+          "name": "zeppelin.shiro.urls.block",
+          "description": "Content of urls block.",
+          "default": [
+            "/api/version = anon",
+            "/api/interpreter/setting/restart/** = authc",
+            "/api/interpreter/** = authc, roles[{{zeppelin_admin_group}}]",
+            "/api/notebook-repositories/** = authc, roles[{{zeppelin_admin_group}}]",
+            "/api/configurations/** = authc, roles[{{zeppelin_admin_group}}]",
+            "/api/credential/** = authc, roles[{{zeppelin_admin_group}}]",
+            "/api/admin/** = authc, roles[{{zeppelin_admin_group}}]",
+            "/** = authc"
+          ],
+          "label": "Zeppelin Shiro Urls Block",
+          "configName": "zeppelin.shiro.urls.block",
+          "separator" : "\n",
+          "type": "string_array"
+        }
+      ],
+      "kerberosPrincipals": [
+        {
+          "name": "ZEPPELIN_PRINCIPAL",
+          "primary": "${principal}",
+          "instance": "${host}"
+        },
+        {
+          "name": "SPNEGO_PRINCIPAL",
+          "primary": "HTTP",
+          "instance": "${host}"
+        }
+      ],
+      "configWriter": {
+        "generators": [
+          {
+            "filename": "zeppelin-conf/zeppelin-site.xml",
+            "configFormat": "hadoop_xml",
+            "kerberosPrincipals": [
+              {
+                "principalName": "ZEPPELIN_PRINCIPAL",
+                "propertyName": "zeppelin.server.kerberos.principal"
+              }
+            ],
+            "includedParams": [
+              "zeppelin_home_dir",
+              "zeppelin_server_port",
+              "zeppelin.server.addr",
+              "zeppelin.war.tempdir",
+              "zeppelin.notebook.dir",
+              "zeppelin.notebook.storage",
+              "zeppelin.config.storage.class",
+              "zeppelin.config.fs.dir",
+              "zeppelin.interpreter.localRepo",
+              "zeppelin.dep.localrepo",
+              "zeppelin.interpreter.group.order",
+              "zeppelin.anonymous.allowed",
+              "zeppelin.notebook.public",
+              "zeppelin.websocket.max.text.message.size",
+              "zeppelin.ssl.client.auth",
+              "zeppelin.server.xframe.options",
+              "zeppelin.server.strict.transport",
+              "zeppelin.server.xxss.protection",
+              "zeppelin.server.xcontent.type.options",
+              "zeppelin.server.jetty.name",
+              "zeppelin.helium.registry",
+              "ssl_enabled",
+              "zeppelin_server_ssl_port",
+              "ssl_client_truststore_location",
+              "ssl_client_truststore_password",
+              "ssl_server_keystore_location",
+              "ssl_server_keystore_password",
+              "ssl_server_keystore_keypassword"
+            ],
+            "additionalConfigs": [
+              {
+                "key": "zeppelin.server.kerberos.keytab",
+                "value": "{{KEYTAB_FILE}}"
+              },
+              {
+                "key": "zeppelin.ssl.keystore.type",
+                "value": "${keystore_type}"
+              },
+              {
+                "key": "zeppelin.ssl.truststore.type",
+                "value": "${keystore_type}"
+              }
+            ]
+          }
+        ],
+        "auxConfigGenerators": [
+          {
+            "filename": "zeppelin-conf/zeppelin-env.sh",
+            "sourceFilename": "aux/zeppelin-env.sh"
+          }
+        ]
+      },
+      "healthAggregation": {
+        "type": "singleton"
+      }
+    }
+  ],
+  "hdfsDirs": [
+    {
+      "name": "CreateZeppelinUserDir",
+      "label": "Create Zeppelin User Directory",
+      "description": "Creates the home directory for the Zeppelin user on HDFS.",
+      "directoryDescription": "Zeppelin user directory",
+      "path": "/user/${principal}",
+      "permissions": "0700"
+    }
+  ],
+  "serviceInit": {
+    "preStartSteps": [
+      {
+        "commandName": "CreateZeppelinUserDir"
+      },
+      {
+        "commandName": "InitializeZeppelinNotebook"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "name": "InitializeZeppelinNotebook",
+      "label": "Initialize Zeppelin Notebook",
+      "description": "Initialize and copy Zeppelin notebooks.",
+      "roleName": "ZEPPELIN_SERVER",
+      "roleCommand": "InitializeZeppelinNotebookRole",
+      "runMode": "single"
+    }
+  ]
+}
