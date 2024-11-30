@@ -1,0 +1,233 @@
+{
+	"name": "SPARK2_THRIFT1",
+	"label": "Spark2 TS1",
+	"description": "Apache Spark Thrift is an open source cluster computing system. This service runs Spark2 Thriftserver as an application on YARN.",
+	"version": "2.0.0.cloudera2",
+	"compatibility": {
+		"cdhVersion": {
+			"min": "5.7.0"
+		}
+	},
+	"runAs": {
+		"user": "hive",
+		"group": "hive",
+		"principal": "hive"
+               
+	},
+	"inExpressWizard": true,
+	"icon": "images/icon.png",
+	"serviceDependencies": [
+                {
+			"name": "HIVE",
+			"required": "true"
+		},
+                {
+                        "name": "SPARK2_ON_YARN",
+                        "required": "false"
+                },
+		{
+			"name": "YARN",
+			"required": "true"
+		}
+	],
+	"kerberos": "${kerberos.auth.enable}",
+	"parameters": [
+		{
+			"name": "kerberos.auth.enable",
+			"label": "Enable Kerberos Authentication",
+			"description": "Enable Kerberos authentication for this THRIFT service.",
+			"type": "boolean",
+			"default": "false",
+			"configurableInWizard": true
+		},
+		{
+			"name": "spark.home",
+			"label": "Custom Spark Home",
+			"description": "This is the path to the custom built spark folder.",
+			"type": "string",
+			"default": "/opt/cloudera/parcels/SPARK2_WITH_TS",
+			"configurableInWizard": true
+		},
+		{
+			"name": "default.realm",
+			"label": "Kerberos Security Realm",
+			"description": "The realm to use for Kerberos security.",
+			"type": "string",
+			"default": "EXAMPLE.COM",
+			"configurableInWizard": true
+		},
+		{
+			"name": "spark.thrift.server.port",
+			"label": "Spark ThriftServer running Port",
+			"description": "The port on which the spark thriftserver will run.",
+			"required": "true",
+			"type": "port",
+			"default": 20000,
+			"configurableInWizard": false
+		},
+		{
+			"name": "spark.exec.mem",
+			"label": "Spark ThriftServer executor memory",
+			"description": "Executor memory of Spark ThriftServer in gb",
+			"required": "true",
+			"type": "string",
+			"default": "1g",
+			"configurableInWizard": true
+		},
+		{
+			"name": "spark.driver.memory",
+			"label": "Spark ThriftServer driver memory",
+			"description": "Driver memory of Spark ThriftServer in gb",
+			"required": "true",
+			"type": "string",
+			"default": "1g",
+			"configurableInWizard": true
+		},
+		{
+			"name": "sparkthrift.queuename",
+			"label": "Spark ThriftServer queue name",
+			"description": "The queue on which Spark ThriftServer will execute jobs",
+			"required": "true",
+			"type": "string",
+			"default": "root.sts1",
+			"configurableInWizard": true
+		},
+		{
+			"name": "spark.exec.cores",
+			"label": "Spark ThriftServer executor cores",
+			"description": "The number of executor cores for Spark ThriftServer1",
+			"required": "true",
+			"type": "string",
+			"default": "1",
+			"configurableInWizard": true
+		},
+		{
+			"name": "spark.dynamicAllocation.maxExecutors",
+			"label": "Spark ThriftServer dynamicAllocation maximum Executors.",
+			"description": "The maximum number of executors that can be allocated for Spark ThriftServer1",
+			"required": "true",
+			"type": "string",
+			"default": "16",
+			"configurableInWizard": true
+		},
+		{
+			"name": "spark.dynamicAllocation.minExecutors",
+			"label": "Spark ThriftServer dynamicAllocation minimum Executors.",
+			"description": "The minimum number of executors that can be allocated for Spark ThriftServer1",
+			"required": "true",
+			"type": "string",
+			"default": "0",
+			"configurableInWizard": true
+		},
+		{
+			"name": "sparkthrift.webui.port",
+			"label": "Spark ThriftServer web ui port",
+			"description": "The web ui port of Spark ThriftServer",
+			"required": "true",
+			"type": "string",
+			"default": "4040",
+			"configurableInWizard": false
+		},
+		{
+			"name": "sparkthrift.ha.enable",
+			"label": "Spark thrift ha status",
+			"description": "Ha status",
+			"required": "true",
+			"type": "boolean",
+			"default": "false",
+			"configurableInWizard": true
+		},
+		{
+			"name": "sparkthrift.loadbalancer.host",
+			"label": "Spark ThriftServer Load Balancer Host",
+			"description": "Address of the load balancer used for Spark ThriftServer roles",
+			"required": "false",
+			"type": "string",
+			"default": "",
+			"configurableInWizard": true
+		},
+		{
+			"name": "sparkthrift.loadbalancer.port",
+			"label": "Spark ThriftServer Load Balancer Port",
+			"description": "Port of the load balancer used for Spark ThriftServer roles",
+			"required": "false",
+			"type": "port",
+			"default": "8010",
+			"configurableInWizard": true
+		},
+		{
+			"name": "sparkthrift.cmd.opts",
+			"label": "Spark ThriftServer Command options",
+			"description": "Extra properties used for starting Spark ThriftServer roles",
+			"required": "false",
+			"type": "string",
+			"default": "",
+			"configurableInWizard": true
+		}
+	],
+	"roles": [
+		{
+			"name": "SPARK2_THRIFT1",
+			"label": "Spark2 Thrift Server",
+			"pluralLabel": "Spark2 Thrift Servers",
+			"jvmBased": true,
+			"startRunner": {
+				"program": "scripts/control.sh",
+				"args": [ "start_thrift_server" ],
+				"environmentVariables" : {
+					"SPARK_THRIFT_SERVER_PORT" : "${spark.thrift.server.port}",
+					"SPARK_EXEC_MEM" : "${spark.exec.mem}",
+					"SPARK_DRIVER_MEM" : "${spark.driver.memory}",
+					"PORTAL_QUEUE" : "${sparkthrift.queuename}",
+                                        "CUSTOM_SPARK_HOME_DIR": "${spark.home}",
+                                        "KEYTAB_USER": "hive",
+                                        "SPARK_HOST": "${host}",
+                                        "SPARK_HA_STATUS": "${sparkthrift.ha.enable}",
+                                        "DEFAULT_REALM": "${default.realm}",
+                                        "SPARK_EXEC_CORES": "${spark.exec.cores}",
+                                        "SPARK_MAX_EXEC": "${spark.dynamicAllocation.maxExecutors}",
+                                        "SPARK_MIN_EXEC": "${spark.dynamicAllocation.minExecutors}",
+                                        "SPARKTHRIFT_WEBUI_PORT": "${sparkthrift.webui.port}",
+                                        "KERBEROS_AUTH_ENABLE": "${kerberos.auth.enable}",
+                                        "SPARK_LOADBALANCER_HOST": "${sparkthrift.loadbalancer.host}",
+                                        "SPARK_LOADBALANCER_PORT": "${sparkthrift.loadbalancer.port}",
+                                        "SPARKTHRIFT_CMD_OPTS": "${sparkthrift.cmd.opts}"
+				}
+			},
+			"kerberosPrincipals": [
+				{
+					"name": "THRIFT1_PRINCIPAL",
+					"primary": "${principal}",
+					"instance": "${host}"
+				},
+				{
+					"name": "THRIFT1_LOADBALANCER_PRINCIPAL",
+					"primary": "${principal}",
+					"instance": "${sparkthrift.loadbalancer.host}"
+				}
+			],
+			"topology": {
+				"minInstances": 1
+			},
+			"logging": {
+				"configFilename": "spark2-ts-conf/log4j.properties",
+				"dir": "/var/log/sparkthrift",
+				"filename": "spark--org.apache.spark.sql.hive.thriftserver.HiveThriftServer2-1-${host}.out",
+				"modifiable": true,
+				"loggingType": "log4j"
+			},
+			"configWriter" : {
+			      "auxConfigGenerators" : [
+				{
+				  "filename" : "spark2-ts-conf/spark-env.sh",
+				  "sourceFilename" : "aux/client/spark-env.sh"
+				},
+				{
+				  "filename" : "spark2-ts-conf/spark-defaults.conf",
+				  "sourceFilename" : "aux/client/spark-defaults.conf"
+				}
+		      ]
+    			}
+		}
+	]
+}
